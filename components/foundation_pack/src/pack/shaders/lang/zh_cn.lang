@@ -1,0 +1,26 @@
+option.SAMPLES_PER_PIXEL=PT 每像素采样数
+option.MAX_BOUNCES=最大表面反弹次数
+
+option.EXPOSURE_EV=曝光补偿（EV）
+option.AUTO_EXPOSURE=自动曝光
+value.AUTO_EXPOSURE.0=关闭
+value.AUTO_EXPOSURE.1=开启
+option.EXPOSURE_METERING=曝光测光
+value.EXPOSURE_METERING.0=全局直方图
+value.EXPOSURE_METERING.1=中央 20%
+option.TONE_MAPPING=色调映射
+value.TONE_MAPPING.0=PBR Neutral
+value.TONE_MAPPING.1=ACES 拟合
+value.TONE_MAPPING.2=OpenDRT Standard
+screen.EXPOSURE=曝光与明暗适应
+option.EXPOSURE_MIN_EV=自动曝光下限（EV）
+option.EXPOSURE_MAX_EV=自动曝光上限（EV）
+option.EXPOSURE_NIGHT_EV=暗夜曝光偏移（EV）
+option.EXPOSURE_BRIGHT_SPEED=进入明亮环境的适应速度
+option.EXPOSURE_DARK_SPEED=进入黑暗环境的适应速度
+option.EXPOSURE_LOW_PERCENT=忽略最暗像素（百分位）
+option.EXPOSURE_HIGH_PERCENT=测光高百分位
+option.EXPOSURE_HIGHLIGHTS=高光保护
+option.EXPOSURE_MAX_EV.comment=允许暗处逐渐提高曝光；不会增加世界里的光能。
+option.EXPOSURE_NIGHT_EV.comment=仅在夜间暗场景降低测光目标；0 为关闭。
+option.EXPOSURE_HIGHLIGHTS.comment=根据第 95 百分位温和降低曝光；不使用最亮单个像素。

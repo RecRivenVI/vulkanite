@@ -1,0 +1,8 @@
+tool = "automation"
+targets = ["26.3-fabric"]
+
+[instances.client]
+width = 2560
+height = 1440
+memory-max = "4G"
+game-args = ["--quickPlaySingleplayer", "auto-empty-section"]

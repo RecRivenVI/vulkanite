@@ -1,0 +1,17 @@
+Vulkanite 采用 GNU Lesser General Public License, version 3 only 许可，许可原文见 `LICENSE.txt`。
+
+来自 Raven's Mod Template 的项目文件与构建组件保留其 MIT 许可；下列第三方文件按各自的许可原样分发。
+
+Raven's Mod Template
+文件：`AGENTS.md`、`.github/workflows/specification.yml`、`gradle/conventions/`、`gradle/wrapper/gradle-wrapper.properties`、`gradle/gradle-daemon-jvm.properties`
+来源：Raven's Mod Template 2.0.2，https://github.com/RecRivenVI/Ravens-Mod-Template
+版权声明：Copyright (c) 2026 RavenYin
+许可：MIT，许可原文见 `licenses/ravens_mod_template-mit.txt`
+SPDX-License-Identifier: MIT
+
+Gradle Wrapper
+文件：`gradlew`、`gradlew.bat`、`gradle/wrapper/gradle-wrapper.jar`
+来源：Gradle 9.8.1，https://gradle.org
+版权声明：Copyright 2015 the original author or authors.
+许可：Apache License, Version 2.0，https://www.apache.org/licenses/LICENSE-2.0
+SPDX-License-Identifier: Apache-2.0

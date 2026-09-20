@@ -1,0 +1,161 @@
+{
+  "run_id": "empty_section",
+  "scenario": "empty-section",
+  "mode": "functional",
+  "git_head": "a7a2edbaba63f9a98a374dc45a805e6b773a1e38",
+  "git_dirty": true,
+  "diff_hash": "203BDB47BFCE8A58685C6630515E12C4335C2837B719FFE6D69534A961BD3A12",
+  "automation_jar_sha256": "02F0CBA362E054B449FB77D93F07B012F8F6EC374412CA01D4D80E023676BF62",
+  "shader_pack_sha256": "E5F7B5A5CF36B4093CCE132C9F678605F1A3E7146A7471202892E22596F2D730",
+  "run_directory": "D:\\Workspaces\\Repositories\\GitHub\\RecRivenVI\\vulkanite\\validations\\integration-empty_section\\result\\empty_section",
+  "game_directory": "D:\\Workspaces\\Repositories\\GitHub\\RecRivenVI\\vulkanite\\validations\\integration-empty_section\\instance\\26.3-fabric\\client",
+  "world": "auto-empty-section",
+  "audit": {
+    "endpoint": "127.0.0.1:53217",
+    "port": 53217,
+    "token_id": "per-run"
+  },
+  "target_block": {
+    "x": 8,
+    "z": 8,
+    "y": 70
+  },
+  "started": "2026-10-12T23:48:59.2148865+08:00",
+  "pass_criteria": [
+    "non-empty baseline accepted",
+    "confirmed empty update accepted after STONE->AIR",
+    "no stale BLAS republish (blasRejected may rise; published must not restore old without place)",
+    "AIR->STONE yields new non-empty revision",
+    "rapid toggle ends consistent with last block state"
+  ],
+  "coverage_gaps": [
+    "The aggregate section and TLAS counters cannot establish per-origin holder uniqueness."
+  ],
+  "preflight_status": "OK",
+  "gradle_pid": 58244,
+  "audit_token_fingerprint": "tk-f7662",
+  "audit_port": 53217,
+  "audit_up": true,
+  "result_steps": [
+    {
+      "pass": true,
+      "name": "baseline_nonempty",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":41,\"nonEmptyMeshUpdates\":506,\"emptyShortcutAccepts\":0,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":785,\"removeSectionRemoved\":0,\"removeSectionNoHolder\":785,\"tangentFallbacks\":0,\"activeGeneration\":1,\"currentSections\":547,\"tlasInstances\":506,\"lastEmptyRevision\":5,\"lastNonEmptyRevision\":69,\"blasEnqueued\":506,\"blasPublished\":506,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":0,\"cpuPipelineNanos\":0,\"cpuTlasNanos\":0,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":0,\"frameCount\":295,\"lastFrameNanos\":0,\"blasReused\":0,\"profileMode\":\"off\",\"cpuTextureBridgeNanos\":0,\"cpuTerrainCopyNanos\":0,\"cpuTerrainUploadNanos\":0,\"cpuUniformWaitNanos\":0,\"gpuRayNanos\":0,\"gpuTlasNanos\":0,\"gpuDynBlasNanos\":0,\"gpuTerrainBlasNanos\":0,\"gpuRaySamples\":0,\"gpuTlasSamples\":0,\"gpuDynBlasSamples\":0,\"gpuTerrainBlasSamples\":0,\"gpuQueriesNotReady\":0,\"gpuQueriesFailed\":0,\"gpuSamplesSkipped\":0,\"cpuInteropSignalNanos\":0,\"cpuInteropWaitNanos\":0,\"cpuRetireNanos\":0,\"gpuGlSceneNanos\":0,\"gpuGlHandoffNanos\":0,\"gpuGlSceneSamples\":0,\"gpuGlHandoffSamples\":0}}"
+    },
+    {
+      "pass": true,
+      "name": "generation_recorded",
+      "status": "PASS",
+      "detail": "gen=1"
+    },
+    {
+      "pass": true,
+      "name": "blas_enqueued",
+      "status": "PASS",
+      "detail": "enq=506"
+    },
+    {
+      "pass": true,
+      "name": "empty_update_accepted",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":42,\"nonEmptyMeshUpdates\":507,\"emptyShortcutAccepts\":1,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":786,\"removeSectionRemoved\":1,\"removeSectionNoHolder\":785,\"tangentFallbacks\":0,\"activeGeneration\":1,\"currentSections\":547,\"tlasInstances\":505,\"lastEmptyRevision\":604,\"lastNonEmptyRevision\":604,\"blasEnqueued\":507,\"blasPublished\":507,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":0,\"cpuPipelineNanos\":0,\"cpuTlasNanos\":0,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":0,\"frameCount\":358,\"lastFrameNanos\":0,\"blasReused\":0,\"profileMode\":\"off\",\"cpuTextureBridgeNanos\":0,\"cpuTerrainCopyNanos\":0,\"cpuTerrainUploadNanos\":0,\"cpuUniformWaitNanos\":0,\"gpuRayNanos\":0,\"gpuTlasNanos\":0,\"gpuDynBlasNanos\":0,\"gpuTerrainBlasNanos\":0,\"gpuRaySamples\":0,\"gpuTlasSamples\":0,\"gpuDynBlasSamples\":0,\"gpuTerrainBlasSamples\":0,\"gpuQueriesNotReady\":0,\"gpuQueriesFailed\":0,\"gpuSamplesSkipped\":0,\"cpuInteropSignalNanos\":0,\"cpuInteropWaitNanos\":0,\"cpuRetireNanos\":0,\"gpuGlSceneNanos\":0,\"gpuGlHandoffNanos\":0,\"gpuGlSceneSamples\":0,\"gpuGlHandoffSamples\":0}}"
+    },
+    {
+      "name": "origin_holder_uniqueness",
+      "status": "NOT_MEASURED",
+      "detail": "Aggregate sections=547 TLAS instances=505; no per-origin identity is exposed by this probe"
+    },
+    {
+      "pass": true,
+      "name": "no_stale_republish",
+      "status": "PASS",
+      "detail": "nonEmpty 507 -> 507"
+    },
+    {
+      "pass": true,
+      "name": "replace_nonempty",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":116,\"nonEmptyMeshUpdates\":509,\"emptyShortcutAccepts\":75,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":860,\"removeSectionRemoved\":1,\"removeSectionNoHolder\":859,\"tangentFallbacks\":0,\"activeGeneration\":1,\"currentSections\":621,\"tlasInstances\":506,\"lastEmptyRevision\":1200,\"lastNonEmptyRevision\":1200,\"blasEnqueued\":509,\"blasPublished\":509,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":0,\"cpuPipelineNanos\":0,\"cpuTlasNanos\":0,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":0,\"frameCount\":661,\"lastFrameNanos\":0,\"blasReused\":0,\"profileMode\":\"off\",\"cpuTextureBridgeNanos\":0,\"cpuTerrainCopyNanos\":0,\"cpuTerrainUploadNanos\":0,\"cpuUniformWaitNanos\":0,\"gpuRayNanos\":0,\"gpuTlasNanos\":0,\"gpuDynBlasNanos\":0,\"gpuTerrainBlasNanos\":0,\"gpuRaySamples\":0,\"gpuTlasSamples\":0,\"gpuDynBlasSamples\":0,\"gpuTerrainBlasSamples\":0,\"gpuQueriesNotReady\":0,\"gpuQueriesFailed\":0,\"gpuSamplesSkipped\":0,\"cpuInteropSignalNanos\":0,\"cpuInteropWaitNanos\":0,\"cpuRetireNanos\":0,\"gpuGlSceneNanos\":0,\"gpuGlHandoffNanos\":0,\"gpuGlSceneSamples\":0,\"gpuGlHandoffSamples\":0}}"
+    },
+    {
+      "pass": true,
+      "name": "rapid_toggle_no_crash",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":491,\"nonEmptyMeshUpdates\":524,\"emptyShortcutAccepts\":450,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":1235,\"removeSectionRemoved\":6,\"removeSectionNoHolder\":1229,\"tangentFallbacks\":0,\"activeGeneration\":1,\"currentSections\":621,\"tlasInstances\":506,\"lastEmptyRevision\":2012,\"lastNonEmptyRevision\":2012,\"blasEnqueued\":524,\"blasPublished\":524,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":0,\"cpuPipelineNanos\":0,\"cpuTlasNanos\":0,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":0,\"frameCount\":1277,\"lastFrameNanos\":0,\"blasReused\":0,\"profileMode\":\"off\",\"cpuTextureBridgeNanos\":0,\"cpuTerrainCopyNanos\":0,\"cpuTerrainUploadNanos\":0,\"cpuUniformWaitNanos\":0,\"gpuRayNanos\":0,\"gpuTlasNanos\":0,\"gpuDynBlasNanos\":0,\"gpuTerrainBlasNanos\":0,\"gpuRaySamples\":0,\"gpuTlasSamples\":0,\"gpuDynBlasSamples\":0,\"gpuTerrainBlasSamples\":0,\"gpuQueriesNotReady\":0,\"gpuQueriesFailed\":0,\"gpuSamplesSkipped\":0,\"cpuInteropSignalNanos\":0,\"cpuInteropWaitNanos\":0,\"cpuRetireNanos\":0,\"gpuGlSceneNanos\":0,\"gpuGlHandoffNanos\":0,\"gpuGlSceneSamples\":0,\"gpuGlHandoffSamples\":0}}"
+    },
+    {
+      "pass": true,
+      "name": "final_consistent",
+      "status": "PASS",
+      "detail": "nonEmpty 509 -> 524"
+    }
+  ],
+  "final_snapshot": {
+    "ok": true,
+    "cmd": "snapshot",
+    "data": {
+      "emptyMeshUpdates": 491,
+      "nonEmptyMeshUpdates": 524,
+      "emptyShortcutAccepts": 450,
+      "emptyShortcutSkipped": 0,
+      "removeSectionCalls": 1235,
+      "removeSectionRemoved": 6,
+      "removeSectionNoHolder": 1229,
+      "tangentFallbacks": 0,
+      "activeGeneration": 1,
+      "currentSections": 621,
+      "tlasInstances": 506,
+      "lastEmptyRevision": 2012,
+      "lastNonEmptyRevision": 2012,
+      "blasEnqueued": 524,
+      "blasPublished": 524,
+      "blasRejected": 0,
+      "cpuIndexedFenceNanos": 0,
+      "cpuIndexedReadbackNanos": 0,
+      "cpuAssembleNanos": 0,
+      "cpuPipelineNanos": 0,
+      "cpuTlasNanos": 0,
+      "gpuRayTicks": 0,
+      "gpuTlasTicks": 0,
+      "gpuDynBlasTicks": 0,
+      "gpuTerrainBlasTicks": 0,
+      "indexedDraws": 0,
+      "indexedBytes": 0,
+      "assembledVertices": 0,
+      "frameCount": 1277,
+      "lastFrameNanos": 0,
+      "blasReused": 0,
+      "profileMode": "off",
+      "cpuTextureBridgeNanos": 0,
+      "cpuTerrainCopyNanos": 0,
+      "cpuTerrainUploadNanos": 0,
+      "cpuUniformWaitNanos": 0,
+      "gpuRayNanos": 0,
+      "gpuTlasNanos": 0,
+      "gpuDynBlasNanos": 0,
+      "gpuTerrainBlasNanos": 0,
+      "gpuRaySamples": 0,
+      "gpuTlasSamples": 0,
+      "gpuDynBlasSamples": 0,
+      "gpuTerrainBlasSamples": 0,
+      "gpuQueriesNotReady": 0,
+      "gpuQueriesFailed": 0,
+      "gpuSamplesSkipped": 0,
+      "cpuInteropSignalNanos": 0,
+      "cpuInteropWaitNanos": 0,
+      "cpuRetireNanos": 0,
+      "gpuGlSceneNanos": 0,
+      "gpuGlHandoffNanos": 0,
+      "gpuGlSceneSamples": 0,
+      "gpuGlHandoffSamples": 0
+    }
+  },
+  "status": "PASS",
+  "launcher_exit_confirmed": true,
+  "remaining_validation_game_pids": [],
+  "remaining_owned_pids": [],
+  "launcher_exit_code": 0,
+  "cleanup_errors": [],
+  "completed": "2026-10-12T23:49:57.3795476+08:00"
+}

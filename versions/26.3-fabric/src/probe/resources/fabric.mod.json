@@ -1,0 +1,23 @@
+{
+    "schemaVersion": 1,
+    "id": "${mod_id}_probe",
+    "version": "${mod_version}",
+    "name": "Vulkanite Probe",
+    "description": "Development-only validation and automation entrypoint for Vulkanite",
+    "authors": [
+        "${mod_authors}"
+    ],
+    "license": "${mod_license}",
+    "environment": "${fabric_environment}",
+    "entrypoints": {
+        "client": [
+            "${mod_group}.audit.AuditEntrypoint"
+        ]
+    },
+    "depends": {
+        "${mod_id}": "=${mod_version}",
+        "fabricloader": ">=${loader_version}",
+        "minecraft": "${minecraft_version}",
+        "java": ">=${java_version}"
+    }
+}
