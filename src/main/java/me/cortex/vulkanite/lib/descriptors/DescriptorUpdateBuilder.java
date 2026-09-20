@@ -210,4 +210,15 @@ public class DescriptorUpdateBuilder {
         vkUpdateDescriptorSets(ctx.device, updates, null);
         stack.pop();
     }
+
+    public DescriptorUpdateBuilder imageSamplers(int binding, List<VImageView> views, VSampler sampler) {
+        if (refSet != null && refSet.getBindingAt(binding) == null) return this;
+        var infos = VkDescriptorImageInfo.calloc(views.size(), stack);
+        for (var view : views) infos.get().imageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+                .imageView(view.view).sampler(sampler.sampler);
+        infos.flip();
+        updates.get().sType$Default().dstSet(set).dstBinding(binding)
+                .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER).descriptorCount(views.size()).pImageInfo(infos);
+        return this;
+    }
 }

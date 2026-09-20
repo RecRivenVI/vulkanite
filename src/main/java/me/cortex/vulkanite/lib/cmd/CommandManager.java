@@ -44,21 +44,21 @@ public class CommandManager {
         return new VCommandPool(device, flags);
     }
 
-    public void submit(int queueId, VkSubmitInfo submit) {
+    public synchronized void submit(int queueId, VkSubmitInfo submit) {
         try (var stack = stackPush()) {
-            vkQueueSubmit(queues[queueId], submit, 0);
+            me.cortex.vulkanite.lib.other.VUtil._CHECK_(vkQueueSubmit(queues[queueId], submit, 0));
         }
     }
 
-    public void submitOnceAndWait(int queueId, VCmdBuff cmdBuff) {
+    public synchronized void submitOnceAndWait(int queueId, VCmdBuff cmdBuff) {
         try (var stack = stackPush()) {
             var submit = VkSubmitInfo.calloc(stack).sType$Default()
                     .pCommandBuffers(stack.pointers(cmdBuff))
                     .pWaitSemaphores(stack.longs())
                     .pWaitDstStageMask(stack.ints())
                     .pSignalSemaphores(stack.longs());
-            vkQueueSubmit(queues[queueId], submit, 0);
-            vkQueueWaitIdle(queues[queueId]);
+            me.cortex.vulkanite.lib.other.VUtil._CHECK_(vkQueueSubmit(queues[queueId], submit, 0));
+            me.cortex.vulkanite.lib.other.VUtil._CHECK_(vkQueueWaitIdle(queues[queueId]));
             cmdBuff.freeInternal();
         }
     }
@@ -72,7 +72,7 @@ public class CommandManager {
     }
 
     //TODO: if its a single use command buffer, automatically add the required fences and stuff to free the command buffer once its done
-    public void submit(int queueId, VCmdBuff[] cmdBuffs, VSemaphore[] waits, int[] waitStages, VSemaphore[] triggers, VFence fence) {
+    public synchronized void submit(int queueId, VCmdBuff[] cmdBuffs, VSemaphore[] waits, int[] waitStages, VSemaphore[] triggers, VFence fence) {
         if (queueId == 0) {
             RenderSystem.assertOnRenderThread();
         }
@@ -90,11 +90,11 @@ public class CommandManager {
                     .waitSemaphoreCount(waits.length)
                     .pWaitDstStageMask(stack.ints(waitStages))
                     .pSignalSemaphores(signalSemaphores);
-            vkQueueSubmit(queues[queueId], submit, fence==null?0:fence.address());
+            me.cortex.vulkanite.lib.other.VUtil._CHECK_(vkQueueSubmit(queues[queueId], submit, fence==null?0:fence.address()));
         }
     }
 
-    public void waitQueueIdle(int queue) {
-        vkQueueWaitIdle(queues[queue]);
+    public synchronized void waitQueueIdle(int queue) {
+        me.cortex.vulkanite.lib.other.VUtil._CHECK_(vkQueueWaitIdle(queues[queue]));
     }
 }

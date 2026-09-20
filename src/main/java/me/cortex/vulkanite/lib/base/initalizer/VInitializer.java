@@ -27,6 +27,18 @@ public class VInitializer {
     private VkDevice device;
     private int queueCount;
     public VInitializer(String appName, String engineName, int major, int minor, String[] extensions, String[] layers) {
+        if (me.cortex.vulkanite.client.rendering.dlss.NgxBridge.available()) {
+            try (var stack = stackPush()) {
+                var all = new java.util.LinkedHashSet<>(Arrays.asList(extensions));
+                var required = Arrays.asList(me.cortex.vulkanite.client.rendering.dlss.NgxBridge.requirements(0,0,
+                        me.cortex.vulkanite.client.rendering.dlss.NgxBridge.DIRECTORY.toString()));
+                var available = new HashSet<String>();
+                for (var extension : getInstanceExtensions(stack)) available.add(extension.extensionNameString());
+                if (!available.containsAll(required)) throw new IllegalStateException("Missing NGX instance extensions: " + required);
+                all.addAll(required);
+                extensions = all.toArray(String[]::new);
+            } catch (RuntimeException error) { me.cortex.vulkanite.client.rendering.dlss.NgxBridge.disable(error.toString()); }
+        }
         try (MemoryStack stack = stackPush()) {
             VkApplicationInfo appInfo = VkApplicationInfo.calloc(stack)
                     .sType$Default()
@@ -63,6 +75,14 @@ public class VInitializer {
     //TODO: add nice queue creation system
     public void createDevice(List<String> extensions, List<String> layers, float[] queuePriorities, Consumer<VkPhysicalDeviceFeatures> deviceFeatures, List<Function<MemoryStack, Struct>> applicators) {
         var deviceExtensions = new HashSet<>(getDeviceExtensionStrings(physicalDevice));
+        if (me.cortex.vulkanite.client.rendering.dlss.NgxBridge.available()) {
+            try {
+                var required = Arrays.asList(me.cortex.vulkanite.client.rendering.dlss.NgxBridge.requirements(instance.address(),physicalDevice.address(),
+                        me.cortex.vulkanite.client.rendering.dlss.NgxBridge.DIRECTORY.toString()));
+                if (!deviceExtensions.containsAll(required)) throw new IllegalStateException("Missing NGX device extensions: " + required);
+                for (var extension : required) if (!extensions.contains(extension)) extensions.add(extension);
+            } catch (RuntimeException error) { me.cortex.vulkanite.client.rendering.dlss.NgxBridge.disable(error.toString()); }
+        }
         for (var extension : extensions) {
             if (!deviceExtensions.contains(extension)) {
                 throw new IllegalStateException("Physical device is missing extension: " + extension);

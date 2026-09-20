@@ -4,97 +4,75 @@ import me.cortex.vulkanite.client.Vulkanite;
 import me.cortex.vulkanite.compat.IRenderTargetVkGetter;
 import me.cortex.vulkanite.lib.memory.VGImage;
 import me.cortex.vulkanite.lib.other.FormatConverter;
-import net.coderbot.iris.gl.texture.InternalTextureFormat;
-import net.coderbot.iris.gl.texture.PixelFormat;
-import net.coderbot.iris.rendertarget.RenderTarget;
+import net.irisshaders.iris.gl.texture.InternalTextureFormat;
+import net.irisshaders.iris.targets.RenderTarget;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
 import static org.lwjgl.opengl.GL11C.*;
-import static org.lwjgl.opengl.GL30C.*;
 import static org.lwjgl.vulkan.VK10.*;
 
 @Mixin(value = RenderTarget.class, remap = false)
 public abstract class MixinRenderTarget implements IRenderTargetVkGetter {
-    @Shadow @Final private PixelFormat format;
     @Shadow @Final private InternalTextureFormat internalFormat;
-
-    @Shadow protected abstract void setupTexture(int i, int i1, int i2, boolean b);
-
+    @Shadow @Final @Mutable private int mainTexture;
+    @Shadow @Final @Mutable private int altTexture;
+    @Shadow private int width;
+    @Shadow private int height;
+    @Shadow private boolean allowsLinear;
+    @Shadow protected abstract void setupTexture(int texture, int width, int height, boolean linear, boolean alt);
+    @Shadow protected abstract void requireValid();
     @Unique private VGImage vgMainTexture;
     @Unique private VGImage vgAltTexture;
 
-    @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/platform/GlStateManager;_genTextures([I)V"))
-    private void redirectGen(int[] textures) {
-
+    @Unique private VGImage allocateSharedTexture() {
+        int format = internalFormat.getGlFormat();
+        if (format == GL_RGBA) format = GL_RGBA8;
+        var ctx = Vulkanite.INSTANCE.getCtx();
+        var image = ctx.memory.createSharedImage(width, height, 1,
+                FormatConverter.getVkFormatFromGl(internalFormat), format,
+                VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        ctx.cmd.executeWait(cmd -> cmd.encodeImageTransition(image, VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT, VK_REMAINING_MIP_LEVELS));
+        return image;
     }
 
-    @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lnet/coderbot/iris/rendertarget/RenderTarget;setupTexture(IIIZ)V", ordinal = 0))
-    private void redirectMain(RenderTarget instance, int id, int width, int height, boolean allowsLinear) {
-        setupTextures(width, height, allowsLinear);
+    @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lcom/mojang/renderpearl/backend/opengl/GlStateManager;_genTexture()I"))
+    private int createSharedTexture() {
+        var image = allocateSharedTexture();
+        if (vgMainTexture == null) vgMainTexture = image;
+        else vgAltTexture = image;
+        return image.glId;
     }
 
-    @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lnet/coderbot/iris/rendertarget/RenderTarget;setupTexture(IIIZ)V", ordinal = 1))
-    private void redirectAlt(RenderTarget instance, int id, int width, int height, boolean allowsLinear) {}
-
-    @Redirect(method = "setupTexture", at = @At(value = "INVOKE",target = "Lnet/coderbot/iris/rendertarget/RenderTarget;resizeTexture(III)V"))
-    private void redirectResize(RenderTarget instance, int t, int w, int h) {}
-
-    @Overwrite
-    public int getMainTexture() {
-        return vgMainTexture.glId;
-    }
-
-    @Overwrite
-    public int getAltTexture() {
-        return vgAltTexture.glId;
+    @Redirect(method = "setupTexture", at = @At(value = "INVOKE", target = "Lnet/irisshaders/iris/targets/RenderTarget;resizeTexture(IIIZ)V"))
+    private void keepSharedStorage(RenderTarget target, int texture, int width, int height, boolean alt) {
+        // External-memory textures already have immutable storage.
     }
 
     @Overwrite
     public void resize(int width, int height) {
+        requireValid();
         glFinish();
-        //TODO: block the gpu fully before deleting and resizing the textures
+        Vulkanite.INSTANCE.getCtx().cmd.waitQueueIdle(0);
         vgMainTexture.free();
         vgAltTexture.free();
-
-        setupTextures(width, height, !internalFormat.getPixelFormat().isInteger());
+        this.width = width;
+        this.height = height;
+        vgMainTexture = allocateSharedTexture();
+        vgAltTexture = allocateSharedTexture();
+        mainTexture = vgMainTexture.glId;
+        altTexture = vgAltTexture.glId;
+        setupTexture(mainTexture, width, height, allowsLinear, false);
+        setupTexture(altTexture, width, height, allowsLinear, true);
     }
 
-    private void setupTextures(int width, int height, boolean allowsLinear) {
-        var ctx = Vulkanite.INSTANCE.getCtx();
-
-        int glfmt = internalFormat.getGlFormat();
-        glfmt = (glfmt == GL_RGBA) ? GL_RGBA8 : glfmt;
-
-        int vkfmt = FormatConverter.getVkFormatFromGl(internalFormat);
-
-        vgMainTexture = ctx.memory.createSharedImage(width, height, 1, vkfmt, glfmt, VK_IMAGE_USAGE_STORAGE_BIT , VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vgAltTexture = ctx.memory.createSharedImage(width, height, 1, vkfmt, glfmt, VK_IMAGE_USAGE_STORAGE_BIT , VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        Vulkanite.INSTANCE.getCtx().cmd.executeWait(cmdbuf -> {
-            cmdbuf.encodeImageTransition(vgMainTexture, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT, VK_REMAINING_MIP_LEVELS);
-            cmdbuf.encodeImageTransition(vgAltTexture, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT, VK_REMAINING_MIP_LEVELS);
-        });
-
-        setupTexture(getMainTexture(), width, height, allowsLinear);
-        setupTexture(getAltTexture(), width, height, allowsLinear);
+    @Redirect(method = "destroy", at = @At(value = "INVOKE", target = "Lcom/mojang/renderpearl/backend/opengl/GlStateManager;_deleteTexture(I)V"))
+    private void destroySharedTexture(int texture) {
+        var image = texture == mainTexture ? vgMainTexture : vgAltTexture;
+        Vulkanite.INSTANCE.addSyncedCallback(image::free);
     }
 
-    @Redirect(method = "destroy", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/platform/GlStateManager;_deleteTextures([I)V"))
-    private void redirectResize(int[] textures) {
-        glFinish();
-        //TODO: block the gpu fully before deleting and resizing the textures
-        vgMainTexture.free();
-        vgAltTexture.free();
-    }
-
-    public VGImage getMain() {
-        return vgMainTexture;
-    }
-
-    public VGImage getAlt() {
-        return vgAltTexture;
-    }
+    public VGImage getMain() { return vgMainTexture; }
+    public VGImage getAlt() { return vgAltTexture; }
 }

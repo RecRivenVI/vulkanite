@@ -19,11 +19,13 @@ public final class VDescriptorSetLayout extends TrackedResourceObject implements
     private final VContext ctx;
     public final long layout;
     public final int[] types;
+    public final int[] counts;
 
-    public VDescriptorSetLayout(VContext ctx, long layout, int[] types) {
+    public VDescriptorSetLayout(VContext ctx, long layout, int[] types, int[] counts) {
         this.ctx = ctx;
         this.layout = layout;
         this.types = types;
+        this.counts = counts;
     }
 
     @Override

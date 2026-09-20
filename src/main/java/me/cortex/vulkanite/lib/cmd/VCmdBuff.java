@@ -99,7 +99,7 @@ public class VCmdBuff extends TrackedResourceObject implements Pointer {
             var barrier = VkMemoryBarrier.calloc(1, stack);
             barrier.get(0).sType$Default().srcAccessMask(VK_ACCESS_MEMORY_WRITE_BIT)
                     .dstAccessMask(VK_ACCESS_MEMORY_READ_BIT);
-            vkCmdPipelineBarrier(this.buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            vkCmdPipelineBarrier(this.buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                     0, barrier, null, null);
         }
     }
@@ -163,7 +163,7 @@ public class VCmdBuff extends TrackedResourceObject implements Pointer {
     }
 
     public void encodeBufferBarrier(VBuffer buffer, long offset, long size) {
-        encodeBufferBarrier(buffer, offset, size, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+        encodeBufferBarrier(buffer, offset, size, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
     }
 
     public void encodeBufferBarrier(VBuffer buffer, long offset, long size, int srcStage, int dstStage) {
@@ -178,13 +178,14 @@ public class VCmdBuff extends TrackedResourceObject implements Pointer {
     }
 
     public void encodeImageTransition(VImage image, int src, int dst, int aspectMask, int mipLevels) {
-        encodeImageTransition(image, src, dst, aspectMask, mipLevels, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+        encodeImageTransition(image, src, dst, aspectMask, mipLevels, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
     }
 
     public void encodeImageTransition(VImage image, int src, int dst, int aspectMask, int mipLevels, int srcStage, int dstStage) {
         try (var stack = stackPush()) {
             var barrier = VkImageMemoryBarrier.calloc(1, stack);
-            barrier.get(0).sType$Default().srcAccessMask(srcStageToAccess(srcStage))
+            barrier.get(0).sType$Default().srcAccessMask(src == VK_IMAGE_LAYOUT_UNDEFINED ? 0 : srcStageToAccess(srcStage))
+                    .srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED).dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
                     .dstAccessMask(dstStageToAccess(dstStage)).oldLayout(src).newLayout(dst).image(image.image())
                     .subresourceRange().aspectMask(aspectMask).baseMipLevel(0).levelCount(mipLevels).baseArrayLayer(0)
                     .layerCount(VK_REMAINING_ARRAY_LAYERS);

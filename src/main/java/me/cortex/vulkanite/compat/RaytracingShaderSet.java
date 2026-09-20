@@ -11,6 +11,8 @@ import java.util.List;
 import static org.lwjgl.vulkan.KHRRayTracingPipeline.*;
 
 public class RaytracingShaderSet {
+    public final me.cortex.vulkanite.client.rendering.reconstruction.ReconstructionInputProvider reconstruction;
+    public final me.cortex.vulkanite.client.rendering.sharc.SharcRequest sharc;
     public final int maxDepth = 1;
 
     private record RayHit(ShaderModule close, ShaderModule any, ShaderModule intersection) {}
@@ -21,6 +23,9 @@ public class RaytracingShaderSet {
     private final VShader[] allShader;
 
     public RaytracingShaderSet(VContext ctx, RaytracingShaderSource source) {
+        String expandedRaygen = me.cortex.vulkanite.lib.shader.ShaderCompiler.preprocessRaygen(source.raygen);
+        reconstruction = me.cortex.vulkanite.client.rendering.reconstruction.RayTracingReconstructionInputs.parse(expandedRaygen);
+        sharc = me.cortex.vulkanite.client.rendering.sharc.SharcRequest.parse(expandedRaygen);
         List<VShader> shaderList = new ArrayList<>();
 
         VShader shader = VShader.compileLoad(ctx, source.raygen, VK_SHADER_STAGE_RAYGEN_BIT_KHR);

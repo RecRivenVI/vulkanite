@@ -8,8 +8,8 @@ import me.cortex.vulkanite.lib.base.initalizer.VInitializer;
 import me.cortex.vulkanite.lib.descriptors.VDescriptorPool;
 import me.cortex.vulkanite.lib.descriptors.VDescriptorSetLayout;
 import me.cortex.vulkanite.lib.descriptors.VTypedDescriptorPool;
-import me.jellysquid.mods.sodium.client.render.chunk.RenderSection;
-import me.jellysquid.mods.sodium.client.render.chunk.compile.ChunkBuildOutput;
+import net.caffeinemc.mods.sodium.client.render.chunk.RenderSection;
+import net.caffeinemc.mods.sodium.client.render.chunk.compile.ChunkBuildOutput;
 import net.minecraft.util.Util;
 import org.lwjgl.vulkan.*;
 
@@ -43,7 +43,7 @@ import static org.lwjgl.vulkan.KHRShaderDrawParameters.VK_KHR_SHADER_DRAW_PARAME
 import static org.lwjgl.vulkan.KHRSpirv14.VK_KHR_SPIRV_1_4_EXTENSION_NAME;
 
 public class Vulkanite {
-    public static final boolean IS_WINDOWS = Util.getOperatingSystem() == Util.OperatingSystem.WINDOWS;
+    public static final boolean IS_WINDOWS = Util.getPlatform() == Util.OS.WINDOWS;
 
     public static boolean MEMORY_LEAK_TRACING = true;
 
@@ -115,9 +115,8 @@ public class Vulkanite {
     }
 
     public void destroy() {
-        for (var pool : descriptorPools.values()) {
-            pool.free();
-        }
+        // Sodium can recreate section managers while Iris retains the shader pipeline.
+        // Descriptor pools belong to that pipeline and are released with its layouts.
         accelerationManager.cleanup();
     }
 
@@ -163,7 +162,7 @@ public class Vulkanite {
         init.createDevice(extensions,
                 List.of(),
                 new float[]{1.0f, 0.9f},
-                features -> features.shaderInt16(true).shaderInt64(true).multiDrawIndirect(true), List.of(
+                features -> features.shaderInt16(true).shaderInt64(true).multiDrawIndirect(true).shaderStorageImageExtendedFormats(true), List.of(
                         stack-> VkPhysicalDeviceAccelerationStructureFeaturesKHR.calloc(stack)
                                 .sType$Default(),
 

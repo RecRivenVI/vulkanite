@@ -7,19 +7,19 @@ import me.cortex.vulkanite.client.rendering.VulkanPipeline;
 import me.cortex.vulkanite.compat.*;
 import me.cortex.vulkanite.lib.base.VContext;
 import me.cortex.vulkanite.lib.memory.VGImage;
-import net.coderbot.iris.gl.buffer.ShaderStorageBuffer;
-import net.coderbot.iris.gl.texture.TextureAccess;
-import net.coderbot.iris.gl.buffer.ShaderStorageBufferHolder;
-import net.coderbot.iris.gl.uniform.DynamicUniformHolder;
-import net.coderbot.iris.mixin.LevelRendererAccessor;
-import net.coderbot.iris.pipeline.CustomTextureManager;
-import net.coderbot.iris.pipeline.newshader.NewWorldRenderingPipeline;
-import net.coderbot.iris.rendertarget.RenderTargets;
-import net.coderbot.iris.shaderpack.ProgramSet;
-import net.coderbot.iris.shaderpack.texture.TextureStage;
-import net.coderbot.iris.uniforms.CelestialUniforms;
-import net.coderbot.iris.uniforms.custom.CustomUniforms;
-import net.minecraft.client.render.Camera;
+import net.irisshaders.iris.gl.buffer.ShaderStorageBuffer;
+import net.irisshaders.iris.gl.texture.TextureAccess;
+import net.irisshaders.iris.gl.buffer.ShaderStorageBufferHolder;
+import net.irisshaders.iris.gl.uniform.DynamicUniformHolder;
+import net.irisshaders.iris.mixin.LevelRendererAccessor;
+import net.irisshaders.iris.pipeline.CustomTextureManager;
+import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
+import net.irisshaders.iris.targets.RenderTargets;
+import net.irisshaders.iris.shaderpack.programs.ProgramSet;
+import net.irisshaders.iris.shaderpack.texture.TextureStage;
+import net.irisshaders.iris.uniforms.CelestialUniforms;
+import net.irisshaders.iris.uniforms.custom.CustomUniforms;
+import net.minecraft.client.Camera;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -33,7 +33,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-@Mixin(value = NewWorldRenderingPipeline.class, remap = false)
+@Mixin(value = IrisRenderingPipeline.class, remap = false)
 public class MixinNewWorldRenderingPipeline {
   
     @Shadow @Final private RenderTargets renderTargets;
@@ -72,11 +72,11 @@ public class MixinNewWorldRenderingPipeline {
             }
         }
         // Still create this, later down the line we might add Vulkan compute pipelines or mesh shading, etc.
-        pipeline = new VulkanPipeline(ctx, Vulkanite.INSTANCE.getAccelerationManager(), rtShaderPasses, set.getPackDirectives().getBufferObjects().keySet().toArray(new int[0]), getCustomTextures());
+        pipeline = new VulkanPipeline(ctx, Vulkanite.INSTANCE.getAccelerationManager(), rtShaderPasses, set.getPack().getBufferObjects().keySet().toArray(new int[0]), getCustomTextures());
     }
 
     @Inject(method = "renderShadows", at = @At("TAIL"))
-    private void renderShadows(LevelRendererAccessor par1, Camera par2, CallbackInfo ci) {
+    private void renderShadows(LevelRendererAccessor par1, Camera par2, net.minecraft.client.renderer.state.level.CameraRenderState renderState, CallbackInfo ci) {
         ShaderStorageBuffer[] buffers = new ShaderStorageBuffer[0];
 
         if(shaderStorageBufferHolder != null) {
@@ -95,13 +95,14 @@ public class MixinNewWorldRenderingPipeline {
 
     @Inject(method = "destroyShaders", at = @At("TAIL"))
     private void destory(CallbackInfo ci) {
-        ctx.cmd.waitQueueIdle(0);
+        // Iris may fail a raster shader before our constructor-tail hook runs.
+        if (ctx != null) ctx.cmd.waitQueueIdle(0);
         if (rtShaderPasses != null) {
             for (var pass : rtShaderPasses) {
-                pass.delete();
+                if (pass != null) pass.delete();
             }
         }
-        pipeline.destory();
+        if (pipeline != null) pipeline.destory();
         rtShaderPasses = null;
         pipeline = null;
     }

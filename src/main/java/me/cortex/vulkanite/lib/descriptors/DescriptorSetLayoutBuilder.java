@@ -16,6 +16,7 @@ import static org.lwjgl.vulkan.VK10.vkCreateDescriptorSetLayout;
 
 public class DescriptorSetLayoutBuilder {
     private IntArrayList types = new IntArrayList();
+    private IntArrayList counts = new IntArrayList();
     private HashMap<Integer, Integer> bindingFlagsMap = new HashMap<>();
     private VkDescriptorSetLayoutBinding.Buffer bindings = VkDescriptorSetLayoutBinding.calloc(0);
     public DescriptorSetLayoutBuilder binding(int binding, int type, int count, int stages) {
@@ -23,6 +24,7 @@ public class DescriptorSetLayoutBuilder {
         var struct = bindings.get(bindings.capacity()-1);
         struct.set(binding, type, count, stages, null);
         types.add(type);
+        counts.add(count);
         return this;
     }
 
@@ -66,7 +68,9 @@ public class DescriptorSetLayoutBuilder {
 
             LongBuffer pBuffer = stack.mallocLong(1);
             _CHECK_(vkCreateDescriptorSetLayout(ctx.device, info, null, pBuffer));
-            return new VDescriptorSetLayout(ctx, pBuffer.get(0), types.toIntArray());
+            return new VDescriptorSetLayout(ctx, pBuffer.get(0), types.toIntArray(), counts.toIntArray());
+        } finally {
+            bindings.free();
         }
     }
 }

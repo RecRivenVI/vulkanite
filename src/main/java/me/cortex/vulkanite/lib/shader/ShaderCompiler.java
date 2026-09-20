@@ -10,6 +10,21 @@ import static org.lwjgl.vulkan.KHRRayTracingPipeline.*;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class ShaderCompiler {
+    public static String preprocessRaygen(String source) {
+        long compiler = shaderc_compiler_initialize();
+        if (compiler == 0) throw new IllegalStateException("Failed to create shader preprocessor");
+        long result = 0;
+        try {
+            result = shaderc_compile_into_preprocessed_text(compiler, source, shaderc_raygen_shader, "raygen", "main", 0);
+            if (result == 0 || shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success)
+                throw new IllegalArgumentException("Raygen preprocessing failed: " + (result == 0 ? "no result" : shaderc_result_get_error_message(result)));
+            return org.lwjgl.system.MemoryUtil.memUTF8(shaderc_result_get_bytes(result));
+        } finally {
+            if (result != 0) shaderc_result_release(result);
+            shaderc_compiler_release(compiler);
+        }
+    }
+
     private static int vulkanStageToShadercKind(int stage) {
         switch (stage) {
             case VK_SHADER_STAGE_VERTEX_BIT:

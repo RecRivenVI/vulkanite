@@ -39,11 +39,14 @@ public class VImageView extends TrackedResourceObject {
                     .levelCount(1);
             _CHECK_(vkCreateImageView(ctx.device, vci, null, view));
             this.view = view.get(0);
+            image.addView(this);
         }
     }
 
     public void free() {
+        if (isFreed()) return; // Image destruction can retire a cached view before its tracker.
         free0();
         vkDestroyImageView(ctx.device, view, null);
+        image.removeView(this);
     }
 }

@@ -7,14 +7,14 @@ import me.cortex.vulkanite.lib.memory.VAccelerationStructure;
 import me.cortex.vulkanite.lib.memory.VBuffer;
 import me.cortex.vulkanite.lib.other.VUtil;
 import me.cortex.vulkanite.lib.other.sync.VFence;
-import net.coderbot.iris.vertices.IrisVertexFormats;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderPhase;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.texture.TextureManager;
-import net.minecraft.util.Pair;
+import net.irisshaders.iris.vertices.IrisVertexFormats;
+import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.vertex.MeshData;
+import net.minecraft.client.renderer.rendertype.RenderType;
+
+import com.mojang.renderpearl.api.vertex.VertexFormat;
+import net.minecraft.client.renderer.texture.TextureManager;
+import org.apache.commons.lang3.tuple.Pair;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.*;
@@ -34,54 +34,19 @@ public class EntityBlasBuilder {
         this.ctx = context;
     }
 
-    private record BuildInfo(VertexFormat format, int quadCount, long address) {}
-    Pair<VAccelerationStructure, VBuffer> buildBlas(List<Pair<RenderLayer, BufferBuilder.BuiltBuffer>> renders, VCmdBuff cmd, VFence fence) {
-        long combined_size = 0;
-        TextureManager textureManager = MinecraftClient.getInstance().getTextureManager();
-        for (var type : renders) {
-            if (((RenderLayer.MultiPhase)type.getLeft()).phases.texture instanceof RenderPhase.Textures) {
-                throw new IllegalStateException("Multi texture not supported");
-            }
-            var textureId = ((RenderLayer.MultiPhase)type.getLeft()).phases.texture.getId().get();
-            var texture = textureManager.getTexture(textureId);
-            var vkImage = ((IVGImage)texture).getVGImage();
-            if (vkImage == null) {
-                throw new IllegalStateException("Vulkan texture not created for render layer " + type.getLeft());
-            }
-            if (!type.getRight().getParameters().format().equals(IrisVertexFormats.ENTITY)) {
-                throw new IllegalStateException("Unknown vertex format used");
-            }
-            combined_size += type.getRight().getVertexBuffer().remaining() + 256;//Add just some buffer so we can do alignment etc
-        }
-        //Each render layer gets its own geometry entry in the blas
-
-        //TODO: PUT THE BINDLESS TEXTURE REFERENCE AT THE START OF THE render layers geometry buffer
-        var geometryBuffer = ctx.memory.createBuffer(combined_size, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 0, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+    private record BuildInfo(int quadCount, long address) {}
+    Pair<VAccelerationStructure, VBuffer> buildBlas(me.cortex.vulkanite.compat.EntityFrame frame, VCmdBuff cmd, VFence fence) {
+        var geometryBuffer = ctx.memory.createBuffer(frame.vertices().remaining(), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 0, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
         long ptr = geometryBuffer.map();
-        long offset = 0;
-        List<BuildInfo> infos = new ArrayList<>();
-        for (var pair : renders) {
-            offset = VUtil.alignUp(offset, 128);
-            MemoryUtil.memCopy(MemoryUtil.memAddress(pair.getRight().getVertexBuffer()), ptr + offset, pair.getRight().getVertexBuffer().remaining());
-            infos.add(new BuildInfo(pair.getRight().getParameters().format(), pair.getRight().getParameters().indexCount()/6, geometryBuffer.deviceAddress() + offset));
-
-
-            offset += pair.getRight().getVertexBuffer().remaining();
-        }
+        MemoryUtil.memCopy(MemoryUtil.memAddress(frame.vertices()), ptr, frame.vertices().remaining());
         geometryBuffer.unmap();
-
-        VAccelerationStructure blas = null;
+        geometryBuffer.flush();
         try (var stack = MemoryStack.stackPush()) {
-            int[] primitiveCounts = new int[infos.size()];
-            var buildInfo = populateBuildStructs(ctx, stack, cmd, infos, primitiveCounts);
-
-            blas = executeBlasBuild(ctx, cmd, fence, stack, buildInfo, primitiveCounts);
+            int[] counts = new int[1];
+            var geometries = populateBuildStructs(ctx, stack, cmd, List.of(new BuildInfo(frame.quadCount(), geometryBuffer.deviceAddress())), counts);
+            return Pair.of(executeBlasBuild(ctx, cmd, fence, stack, geometries, counts), geometryBuffer);
         }
-
-
-        return new Pair<>(blas, geometryBuffer);
     }
-
     private VkAccelerationStructureGeometryKHR.Buffer populateBuildStructs(VContext ctx, MemoryStack stack, VCmdBuff cmdBuff, List<BuildInfo> geometries, int[] primitiveCounts) {
         var geometryInfos = VkAccelerationStructureGeometryKHR.calloc(geometries.size(), stack);
         int i = 0;
@@ -91,7 +56,7 @@ public class EntityBlasBuilder {
 
             VkDeviceOrHostAddressConstKHR vertexData = VkDeviceOrHostAddressConstKHR.calloc(stack).deviceAddress(geometry.address);
             int vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-            int vertexStride = geometry.format.getVertexSizeByte();
+            int vertexStride = me.cortex.vulkanite.compat.EntityFrame.STRIDE;
 
             geometryInfos.get()
                     .sType$Default()
@@ -102,11 +67,12 @@ public class EntityBlasBuilder {
                                     .vertexData(vertexData)
                                     .vertexFormat(vertexFormat)
                                     .vertexStride(vertexStride)
-                                    .maxVertex(geometry.quadCount * 4)
+                                    .maxVertex(geometry.quadCount * 4 - 1)
 
                                     .indexData(indexData)
                                     .indexType(indexType)))
                     .geometryType(VK_GEOMETRY_TYPE_TRIANGLES_KHR)
+                    .flags(VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR)
             //        .flags(geometry.geometryFlags)
             ;
             primitiveCounts[i++] = (geometry.quadCount * 2);
@@ -156,7 +122,7 @@ public class EntityBlasBuilder {
 
         vkCmdBuildAccelerationStructuresKHR(cmd.buffer, buildInfos, stack.pointers(buildRanges));
 
-        vkCmdPipelineBarrier(cmd.buffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, VkMemoryBarrier.calloc(1)
+        vkCmdPipelineBarrier(cmd.buffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, VkMemoryBarrier.calloc(1, stack)
                 .sType$Default()
                 .srcAccessMask(VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR)
                 .dstAccessMask(VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR), null, null);

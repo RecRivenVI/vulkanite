@@ -5,11 +5,11 @@ import me.cortex.vulkanite.lib.descriptors.VDescriptorSetLayout;
 import me.cortex.vulkanite.lib.memory.VAccelerationStructure;
 import me.cortex.vulkanite.lib.memory.VBuffer;
 import me.cortex.vulkanite.lib.other.sync.VSemaphore;
-import me.jellysquid.mods.sodium.client.render.chunk.RenderSection;
-import me.jellysquid.mods.sodium.client.render.chunk.compile.ChunkBuildOutput;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.util.Pair;
+import net.caffeinemc.mods.sodium.client.render.chunk.RenderSection;
+import net.caffeinemc.mods.sodium.client.render.chunk.compile.ChunkBuildOutput;
+import com.mojang.blaze3d.vertex.MeshData;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -22,6 +22,7 @@ public class AccelerationManager {
     private final ConcurrentLinkedDeque<AccelerationBlasBuilder.BLASBatchResult> blasResults = new ConcurrentLinkedDeque<>();
 
     private final AccelerationTLASManager tlasManager;
+    private final java.util.Map<RenderSection, Long> latestBuilds = new java.util.IdentityHashMap<>();
 
     public AccelerationManager(VContext context, int blasBuildQueue) {
         this.ctx = context;
@@ -30,11 +31,16 @@ public class AccelerationManager {
     }
 
     public void chunkBuilds(List<ChunkBuildOutput> results) {
+        for (var result : results) {
+            latestBuilds.put(result.section, (long) result.submitTime);
+            var geometry = ((me.cortex.vulkanite.compat.IAccelerationBuildResult) result).getAccelerationGeometryData();
+            if (geometry != null && geometry.isEmpty()) tlasManager.removeSection(result.section);
+        }
         blasBuilder.enqueue(results);
     }
 
 
-    public void setEntityData(List<Pair<RenderLayer, BufferBuilder.BuiltBuffer>> data) {
+    public void setEntityData(me.cortex.vulkanite.compat.EntityFrame data) {
         tlasManager.setEntityData(data);
     }
 
@@ -47,7 +53,10 @@ public class AccelerationManager {
             List<AccelerationBlasBuilder.BLASBuildResult> results = new LinkedList<>();
             while (!blasResults.isEmpty()) {
                 var batch = blasResults.poll();
-                results.addAll(batch.results());
+                for (var result : batch.results()) {
+                    if (java.util.Objects.equals(latestBuilds.get(result.data().section()), result.data().time())) results.add(result);
+                    else tlasManager.reject(result);
+                }
                 syncs.add(batch.semaphore());
             }
             tlasManager.updateSections(results);
@@ -61,21 +70,25 @@ public class AccelerationManager {
     }
 
     public void sectionRemove(RenderSection section) {
+        latestBuilds.remove(section);
         tlasManager.removeSection(section);
     }
 
     //Cleans up any loose things such as semaphores waiting to be synced etc
     public void cleanup() {
-        //TODO: FIXME: I DONT THINK THIS IS CORRECT OR WORKS, IM STILL LEAKING VRAM MEMORY OUT THE WAZOO WHEN f3+a reloading
+        latestBuilds.clear();
+        blasBuilder.awaitIdle();
         ctx.cmd.waitQueueIdle(0);
         ctx.cmd.waitQueueIdle(1);
-        try {
-            Thread.sleep(250L);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        ctx.sync.checkFences();
+        while (!blasResults.isEmpty()) {
+            var batch = blasResults.poll();
+            for (var result : batch.results()) {
+                result.structure().free();
+                result.data().geometryBuffers().forEach(VBuffer::free);
+            }
+            batch.semaphore().free();
         }
-        ctx.cmd.waitQueueIdle(0);
-        ctx.cmd.waitQueueIdle(1);
         syncs.forEach(VSemaphore::free);
         syncs.clear();
         tlasManager.cleanupTick();

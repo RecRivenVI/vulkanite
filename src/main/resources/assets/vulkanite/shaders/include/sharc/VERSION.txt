@@ -1,0 +1,5 @@
+NVIDIA SHARC 1.8.3
+Upstream commit: 4e21b585c33c83d723ca9a1e11bbb1090d145793
+Source: https://github.com/NVIDIA-RTX/SHARC
+Retrieved: 2026-09-20
+Local integration changes: pack-relative include paths in the Foundation copy; Vulkanite-owned GLSL Resolve entry point.

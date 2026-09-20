@@ -5,11 +5,11 @@ import me.cortex.vulkanite.client.Vulkanite;
 import me.cortex.vulkanite.compat.IVGImage;
 import me.cortex.vulkanite.lib.memory.VGImage;
 import me.cortex.vulkanite.lib.other.FormatConverter;
-import net.coderbot.iris.gl.IrisRenderSystem;
-import net.coderbot.iris.gl.texture.GlTexture;
-import net.coderbot.iris.gl.texture.InternalTextureFormat;
-import net.coderbot.iris.gl.texture.TextureType;
-import net.coderbot.iris.shaderpack.texture.TextureFilteringData;
+import net.irisshaders.iris.gl.IrisRenderSystem;
+import net.irisshaders.iris.gl.texture.GlTexture;
+import net.irisshaders.iris.gl.texture.InternalTextureFormat;
+import net.irisshaders.iris.gl.texture.TextureType;
+import net.irisshaders.iris.shaderpack.texture.TextureFilteringData;
 import org.lwjgl.opengl.GL30;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
@@ -24,12 +24,12 @@ import static org.lwjgl.vulkan.VK10.*;
 public abstract class MixinGlTexture extends MixinGlResource implements IVGImage {
     @Unique private VGImage sharedImage;
 
-    @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/platform/GlStateManager;_genTexture()I"))
+    @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lcom/mojang/renderpearl/backend/opengl/GlStateManager;_genTexture()I"))
     private static int redirectGen() {
         return -1;
     }
 
-    @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lnet/coderbot/iris/gl/texture/GlTexture;getGlId()I", ordinal = 0))
+    @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lnet/irisshaders/iris/gl/texture/GlTexture;getGlId()I", ordinal = 0))
     private int redirectTextureCreation(GlTexture instance, TextureType target, int sizeX, int sizeY, int sizeZ, int internalFormat, int format, int pixelType, byte[] pixels, TextureFilteringData filteringData) {
         // Before getting the texture id, create the texture that wasn't created earlier
 
@@ -42,7 +42,11 @@ public abstract class MixinGlTexture extends MixinGlResource implements IVGImage
 
         sharedImage = Vulkanite.INSTANCE.getCtx().memory
             .createSharedImage(
-                    (sizeZ == 1 && sizeY == 1? 1 : (sizeZ == 1?2:3)),
+                    switch (target) {
+                        case TEXTURE_1D -> 1;
+                        case TEXTURE_2D, TEXTURE_RECTANGLE -> 2;
+                        case TEXTURE_3D -> 3;
+                    },
                     sizeX,
                     sizeY,
                     sizeZ,
@@ -62,11 +66,11 @@ public abstract class MixinGlTexture extends MixinGlResource implements IVGImage
         return sharedImage.glId;
     }
 
-    @Redirect(method="<init>", at = @At(value = "INVOKE", target = "Lnet/coderbot/iris/gl/texture/TextureType;apply(IIIIIIILjava/nio/ByteBuffer;)V"))
+    @Redirect(method="<init>", at = @At(value = "INVOKE", target = "Lnet/irisshaders/iris/gl/texture/TextureType;apply(IIIIIIILjava/nio/ByteBuffer;)V"))
     private void redirectUpload(TextureType instance, int glId, int width, int height, int depth, int internalFormat, int format, int pixelType, ByteBuffer data) {
         int target = instance.getGlType();
 
-        RenderSystem.assertOnRenderThreadOrInit();
+        RenderSystem.assertOnRenderThread();
         IrisRenderSystem.bindTextureForSetup(target, glId);
 
         switch (instance) {

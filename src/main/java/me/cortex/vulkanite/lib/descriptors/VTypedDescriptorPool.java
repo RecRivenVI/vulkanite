@@ -32,7 +32,7 @@ public class VTypedDescriptorPool extends TrackedResourceObject {
         try (var stack = stackPush()) {
             var sizes = VkDescriptorPoolSize.calloc(layout.types.length, stack);
             for (int i = 0; i < layout.types.length; i++) {
-                sizes.get(i).type(layout.types[i]).descriptorCount(nSetsPerPool);
+                sizes.get(i).type(layout.types[i]).descriptorCount(Math.multiplyExact(nSetsPerPool, layout.counts[i]));
             }
             LongBuffer pPool = stack.mallocLong(1);
             _CHECK_(vkCreateDescriptorPool(ctx.device, VkDescriptorPoolCreateInfo.calloc(stack)

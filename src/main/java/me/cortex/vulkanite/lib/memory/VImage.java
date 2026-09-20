@@ -11,8 +11,15 @@ public class VImage {
     public final int format;
 
     public final int dimensions;
+    private final java.util.Set<me.cortex.vulkanite.lib.other.VImageView> views = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
-    VImage(VmaAllocator.ImageAllocation allocation, int width, int height, int depth, int mipLayers, int format) {
+    public void addView(me.cortex.vulkanite.lib.other.VImageView view) {
+        if (allocation == null) throw new IllegalStateException("View of released image");
+        views.add(view);
+    }
+    public void removeView(me.cortex.vulkanite.lib.other.VImageView view) { views.remove(view); }
+
+    VImage(VmaAllocator.ImageAllocation allocation, int dimensions, int width, int height, int depth, int mipLayers, int format) {
         this.allocation = allocation;
         this.width = width;
         this.height = height;
@@ -20,19 +27,13 @@ public class VImage {
         this.format = format;
         this.depth = depth;
 
-        int dimensions = 3;
-
-        if (height == 1 && depth == 1) {
-            dimensions = 1;
-        }
-        else if(height != 1 && depth == 1) {
-            dimensions = 2;
-        }
-
+        // Extents do not determine image type: a 1x1 texture can still be 2D.
         this.dimensions = dimensions;
     }
 
     public void free() {
+        if (allocation == null) return;
+        for (var view : java.util.List.copyOf(views)) view.free();
         allocation.free();
         allocation = null;
     }

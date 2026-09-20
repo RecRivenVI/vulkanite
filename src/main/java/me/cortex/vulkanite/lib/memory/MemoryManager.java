@@ -247,7 +247,7 @@ public class MemoryManager {
             }
 
             _CHECK_GL_ERROR_();
-            return new VGImage(alloc, width, height, depth, mipLevels, vkFormat, glFormat, glId);
+            return new VGImage(alloc, dimensions, width, height, depth, mipLevels, vkFormat, glFormat, glId);
         }
     }
 
@@ -287,7 +287,7 @@ public class MemoryManager {
                     VmaAllocationCreateInfo.calloc(stack)
                             .usage(VMA_MEMORY_USAGE_AUTO)
                             .requiredFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
-            return new VImage(alloc, width, height, 1, mipLevels, vkFormat);
+            return new VImage(alloc, 2, width, height, 1, mipLevels, vkFormat);
         }
     }
 

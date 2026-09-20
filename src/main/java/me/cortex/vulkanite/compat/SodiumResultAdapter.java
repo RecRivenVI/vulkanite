@@ -1,8 +1,8 @@
 package me.cortex.vulkanite.compat;
 
-import me.jellysquid.mods.sodium.client.render.chunk.compile.ChunkBuildOutput;
-import me.jellysquid.mods.sodium.client.render.chunk.terrain.TerrainRenderPass;
-import me.jellysquid.mods.sodium.client.util.NativeBuffer;
+import net.caffeinemc.mods.sodium.client.render.chunk.compile.ChunkBuildOutput;
+import net.caffeinemc.mods.sodium.client.render.chunk.terrain.TerrainRenderPass;
+import net.caffeinemc.mods.sodium.client.util.NativeBuffer;
 import org.lwjgl.system.MemoryUtil;
 
 import java.util.HashMap;
@@ -18,7 +18,7 @@ public class SodiumResultAdapter {
         for (var pass : buildResult.meshes.entrySet()) {
             var vertData = pass.getValue().getVertexData();
 
-            int stride = ebr.getVertexFormat().getVertexFormat().getStride();
+            int stride = ebr.getVertexFormat().getVertexFormat().getVertexSize();
 
             if (vertData.getLength()%stride != 0)
                 throw new IllegalStateException("Mismatch length and stride");
@@ -29,10 +29,7 @@ public class SodiumResultAdapter {
             map.put(pass.getKey(), new GeometryData(vertices>>2));
         }
 
-        if (!map.isEmpty()) {
-            ebr.setAccelerationGeometryData(map);
-        } else {
-            ebr.setAccelerationGeometryData(null);
-        }
+        // An empty build removes previously uploaded geometry; null means not captured.
+        ebr.setAccelerationGeometryData(map);
     }
 }

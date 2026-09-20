@@ -1,0 +1,60 @@
+#version 460
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_buffer_reference_uvec2 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_shader_16bit_storage : require
+#extension GL_EXT_control_flow_attributes : require
+
+#define SHARC_ENABLE_GLSL 1
+#define SHARC_UPDATE 0
+#define SHARC_QUERY 0
+#define SHARC_USE_FP16 0
+#define SHARC_ENABLE_SH_ENCODING 0
+#define SHARC_ENABLE_RESPONSIVE_LIGHTING 0
+#define HASH_GRID_COMPACT 1
+#define HASH_GRID_ENABLE_64_BIT_ATOMICS 0
+
+#include "SharcGlslHelpers.h"
+#include "SharcCommon.h"
+
+layout(local_size_x=256, local_size_y=1, local_size_z=1) in;
+layout(push_constant, std430) uniform SharcResolvePush {
+    uvec2 hashAddress;
+    uvec2 accumulationAddress;
+    uvec2 resolvedAddress;
+    uint capacity;
+    float sceneScale;
+    float radianceScale;
+    float levelBias;
+    uint _padding0;
+    vec4 cameraPosition;
+    vec4 previousCameraPosition;
+    uvec4 resolve;
+} pc;
+
+SharcParameters vulkaniteSharcParameters() {
+    SharcParameters result;
+    result.hashGridParameters.cameraPosition=pc.cameraPosition.xyz;
+    result.hashGridParameters.logarithmBase=2.0;
+    result.hashGridParameters.sceneScale=pc.sceneScale;
+    result.hashGridParameters.levelBias=pc.levelBias;
+    result.hashGridData.capacity=pc.capacity;
+    result.hashGridData.hashEntriesBuffer=RWStructuredBuffer_uint(pc.hashAddress);
+    result.radianceScale=pc.radianceScale;
+    result.accumulationBuffer=RWStructuredBuffer_SharcAccumulationData(pc.accumulationAddress);
+    result.resolvedBuffer=RWStructuredBuffer_SharcPackedData(pc.resolvedAddress);
+    return result;
+}
+
+void main() {
+    SharcResolveParameters resolveParameters;
+    resolveParameters.cameraPositionPrev=pc.previousCameraPosition.xyz;
+    resolveParameters.accumulationFrameNum=pc.resolve.x;
+    resolveParameters.responsiveFrameNum=pc.resolve.y;
+    resolveParameters.staleFrameNumMax=pc.resolve.z;
+    resolveParameters.frameIndex=pc.resolve.w;
+    SharcResolveEntry(gl_GlobalInvocationID.x,vulkaniteSharcParameters(),resolveParameters);
+}
+
+

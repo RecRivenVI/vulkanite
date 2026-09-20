@@ -15,11 +15,11 @@ import me.cortex.vulkanite.lib.memory.VAccelerationStructure;
 import me.cortex.vulkanite.lib.memory.VBuffer;
 import me.cortex.vulkanite.lib.other.sync.VFence;
 import me.cortex.vulkanite.lib.other.sync.VSemaphore;
-import me.jellysquid.mods.sodium.client.render.chunk.RenderSection;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.util.Pair;
-import net.minecraft.util.math.ChunkSectionPos;
+import net.caffeinemc.mods.sodium.client.render.chunk.RenderSection;
+import com.mojang.blaze3d.vertex.MeshData;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import org.apache.commons.lang3.tuple.Pair;
+import net.minecraft.core.SectionPos;
 import org.joml.Matrix4x3f;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.*;
@@ -42,8 +42,19 @@ public class AccelerationTLASManager {
     private final VCommandPool singleUsePool;
 
     private final List<VAccelerationStructure> structuresToRelease = new ArrayList<>();
+    private final List<VBuffer> rejectedBuffers = new ArrayList<>();
 
     private VAccelerationStructure currentTLAS;
+    private Pair<VAccelerationStructure, VBuffer> currentEntityBuild;
+
+    // Called only after the preceding ray dispatch is complete (queue 0 frame boundary).
+    private void releaseEntities() {
+        if (currentEntityBuild != null) {
+            currentEntityBuild.getLeft().free();
+            currentEntityBuild.getRight().free();
+            currentEntityBuild = null;
+        }
+    }
 
     public AccelerationTLASManager(VContext context, int queue) {
         this.context = context;
@@ -63,10 +74,14 @@ public class AccelerationTLASManager {
             buildDataManager.update(result);
         }
     }
+    public void reject(AccelerationBlasBuilder.BLASBuildResult result) {
+        structuresToRelease.add(result.structure());
+        rejectedBuffers.addAll(result.data().geometryBuffers());
+    }
 
 
-    private List<Pair<RenderLayer, BufferBuilder.BuiltBuffer>> entityData;
-    public void setEntityData(List<Pair<RenderLayer, BufferBuilder.BuiltBuffer>> data) {
+    private me.cortex.vulkanite.compat.EntityFrame entityData;
+    public void setEntityData(me.cortex.vulkanite.compat.EntityFrame data) {
         this.entityData = data;
     }
 
@@ -81,20 +96,7 @@ public class AccelerationTLASManager {
         RenderSystem.assertOnRenderThread();
 
         singleUsePool.doReleases();
-
-        if (buildDataManager.sectionCount() == 0) {
-            if (blocking.length != 0) {
-                // This case can happen when reloading or some other weird cases, only occurse
-                // when the world _becomes_ empty for some reason, so just clear all the
-                // semaphores
-                // TODO: move to a destroy method or something in AccelerationManager instead of
-                // here
-                for (var semaphore : blocking) {
-                    semaphore.free();
-                }
-            }
-            return;
-        }
+        releaseEntities();
 
         // NOTE: renderLink is required to ensure that we are not overriding memory that
         // is actively being used for frames
@@ -117,13 +119,10 @@ public class AccelerationTLASManager {
             Pair<VAccelerationStructure, VBuffer> entityBuild;
             if (entityData != null) {
                 entityBuild = entityBlasBuilder.buildBlas(entityData, cmd, fence);
-                context.sync.addCallback(fence, ()->{
-                    entityBuild.getLeft().free();
-                    entityBuild.getRight().free();
-                });
             } else {
                 entityBuild = null;
             }
+            currentEntityBuild = entityBuild;
 
             {
                 // TODO: need to sync with respect to updates from gpu memory updates from
@@ -245,7 +244,10 @@ public class AccelerationTLASManager {
 
             List<VAccelerationStructure> capturedList = new ArrayList<>(structuresToRelease);
             structuresToRelease.clear();
+            var retiredBuffers = new ArrayList<>(rejectedBuffers);
+            rejectedBuffers.clear();
             context.sync.addCallback(fence, () -> {
+                retiredBuffers.forEach(VBuffer::free);
                 scratchBuffer.free();
                 if (oldTLAS != null) {
                     oldTLAS.free();
@@ -296,7 +298,7 @@ public class AccelerationTLASManager {
         // uploading per frame
         public void setGeometryUpdateMemory(VFence fence, VkAccelerationStructureGeometryKHR struct, VkAccelerationStructureInstanceKHR addin) {
             long size = (long) VkAccelerationStructureInstanceKHR.SIZEOF * count;
-            VBuffer data = context.memory.createBuffer(size + (addin==null?0:VkAccelerationStructureInstanceKHR.SIZEOF),
+            VBuffer data = context.memory.createBuffer(Math.max(VkAccelerationStructureInstanceKHR.SIZEOF, size + (addin==null?0:VkAccelerationStructureInstanceKHR.SIZEOF)),
                     VK_BUFFER_USAGE_TRANSFER_DST_BIT
                             | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
                             | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
@@ -493,7 +495,7 @@ public class AccelerationTLASManager {
             }
         }
 
-        Map<ChunkSectionPos, Holder> tmp = new HashMap<>();
+        Map<SectionPos, Holder> tmp = new HashMap<>();
 
         public void fenceTick() {
             while (!arenaDeallocJobs.isEmpty()) {
@@ -508,6 +510,12 @@ public class AccelerationTLASManager {
 
         public void update(AccelerationBlasBuilder.BLASBuildResult result) {
             var data = result.data();
+            if (data.section().isDisposed()) {
+                // The next TLAS submission waits for this batch's compaction semaphore.
+                structuresToRelease.add(result.structure());
+                rejectedBuffers.addAll(data.geometryBuffers());
+                return;
+            }
             var holder = tmp.computeIfAbsent(data.section().getPosition(), a -> new Holder(alloc(), data.section()));
             if (holder.structure != null) {
                 structuresToRelease.add(holder.structure);
@@ -605,9 +613,15 @@ public class AccelerationTLASManager {
 
     // Called for cleaning up any remaining loose resources
     void cleanupTick() {
+        rejectedBuffers.forEach(VBuffer::free);
+        rejectedBuffers.clear();
+        releaseEntities();
+        entityData = null;
         singleUsePool.doReleases();
         structuresToRelease.forEach(VAccelerationStructure::free);
         structuresToRelease.clear();
+        buildDataManager.fenceTick();
+        buildDataManager.descUpdateJobs.clear();
         if (currentTLAS != null) {
             currentTLAS.free();
             currentTLAS = null;

@@ -30,7 +30,7 @@ public class SharedImageViewTracker {
 
     public VImageView getView(Supplier<VImage> imageSupplier) {
         VImage image = imageSupplier.get();
-        if (this.view == null || this.view.image != image) {
+        if (this.view == null || this.view.isFreed() || this.view.image != image) {
             //TODO: move this to like a fence free that you pass in via an arg
             if (view != null) {
                 Vulkanite.INSTANCE.addSyncedCallback(view::free);

@@ -10,6 +10,7 @@ public abstract class TrackedResourceObject {
     }
 
     protected void free0() {
+        if (ref.freedRef[0]) throw new IllegalStateException("Double release: " + getClass().getName());
         ref.freedRef[0] = true;
         ref.cleanable.clean();
     }
