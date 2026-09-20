@@ -1,0 +1,26 @@
+option.SAMPLES_PER_PIXEL=PT samples per pixel
+option.MAX_BOUNCES=Maximum surface bounces
+
+option.EXPOSURE_EV=Exposure (EV)
+option.AUTO_EXPOSURE=Automatic exposure
+value.AUTO_EXPOSURE.0=Off
+value.AUTO_EXPOSURE.1=On
+option.EXPOSURE_METERING=Exposure metering
+value.EXPOSURE_METERING.0=Global histogram
+value.EXPOSURE_METERING.1=Center 20%
+option.TONE_MAPPING=Tone mapping
+value.TONE_MAPPING.0=PBR Neutral
+value.TONE_MAPPING.1=ACES fitted
+value.TONE_MAPPING.2=OpenDRT Standard
+screen.EXPOSURE=Exposure and adaptation
+option.EXPOSURE_MIN_EV=Minimum auto exposure (EV)
+option.EXPOSURE_MAX_EV=Maximum auto exposure (EV)
+option.EXPOSURE_NIGHT_EV=Dark night exposure offset (EV)
+option.EXPOSURE_BRIGHT_SPEED=Adaptation to bright scenes
+option.EXPOSURE_DARK_SPEED=Adaptation to dark scenes
+option.EXPOSURE_LOW_PERCENT=Low metering percentile
+option.EXPOSURE_HIGH_PERCENT=High metering percentile
+option.EXPOSURE_HIGHLIGHTS=Highlight protection
+option.EXPOSURE_MAX_EV.comment=Allows gradual exposure gain indoors; does not add energy to the world.
+option.EXPOSURE_NIGHT_EV.comment=Lowers the meter target only for dim night scenes; zero disables this bias.
+option.EXPOSURE_HIGHLIGHTS.comment=Soft protection based on the 95th percentile, not a single brightest pixel.

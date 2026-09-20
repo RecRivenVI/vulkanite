@@ -64,6 +64,7 @@ public class RaytracePipelineBuilder {
         return this;
     }
 
+
     //TODO: generate stb
     public VRaytracePipeline build(VContext context, int maxDepth) {
         shaders.add(gen);
@@ -73,13 +74,7 @@ public class RaytracePipelineBuilder {
         for (var shader : shaders) {
             reflections.add(shader.shader().getReflection());
         }
-        try {
-            reflection = ShaderReflection.mergeStages(reflections.toArray(ShaderReflection[]::new));
-            System.out.println("Raytracing pipeline reflection:\n" + reflection);
-        } catch (Exception e) {
-            System.out.println("Failed to merge shader reflections, this is likely due to a mismatch in descriptor sets");
-            throw e;
-        }
+        reflection = ShaderReflection.mergeStages(reflections.toArray(ShaderReflection[]::new));
 
         if (layouts.isEmpty()) {
             layouts.addAll(reflection.buildSetLayouts(context));
@@ -151,9 +146,12 @@ public class RaytracePipelineBuilder {
                     .maxPipelineRayRecursionDepth(maxDepth);
 
             LongBuffer pPipeline = stack.mallocLong(1);
-            _CHECK_(vkCreateRayTracingPipelinesKHR(context.device, VK_NULL_HANDLE, VK_NULL_HANDLE,
-                    VkRayTracingPipelineCreateInfoKHR.create(pipelineCreateInfo.address(), 1),
-                    null, pPipeline));
+            try (var cache = PipelineCompilationCache.open(context.device)) {
+                int status = vkCreateRayTracingPipelinesKHR(context.device, VK_NULL_HANDLE, cache.handle(),
+                        VkRayTracingPipelineCreateInfoKHR.create(pipelineCreateInfo.address(), 1), null, pPipeline);
+                _CHECK_(status);
+                cache.save();
+            }
 
 
             {

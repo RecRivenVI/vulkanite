@@ -1,0 +1,140 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+#include "/lib/ray.glsl"
+#include "/lib/visibility.glsl"
+
+#define SAMPLES_PER_PIXEL 2 // [2 3 4]
+#define MAX_BOUNCES 4 // [2 3 4 6]
+
+uint rng;
+vec3 sunDirection;
+vec3 moonDirection;
+vec3 moonIrradiance;
+vec3 sunIrradiance;
+float daylightFactor;
+
+bool irisFrameReady() {
+    return camera.vulkaniteFrameAbi.x==3u && irisFrame.header.x==2u
+            && (irisFrame.header.y&13u)==13u && irisFrame.header.w==1u
+            && uint(irisFrame.worldState.x)==camera.frame;
+}
+
+float randomFloat() {
+    rng=rng*747796405u+2891336453u;
+    uint x=((rng>>((rng>>28u)+4u))^rng)*277803737u;
+    return uintBitsToFloat(0x3f800000u|(((x>>22u)^x)>>9u))-1.0;
+}
+
+void traceDetailed(vec3 origin,vec3 direction,uint visibility,float coneWidth,float coneSpread) {
+    hit.distance=-1.0;
+    hit.visibilityFlags=visibility;
+    hit.rayConeWidth=coneWidth;
+    hit.rayConeSpread=coneSpread;
+    randomFloat();
+    hit.coverageSeed=rng;
+    traceRayEXT(scene,0u,255,0,0,0,origin,0.001,direction,65536.0,0);
+}
+
+vec3 cosineHemisphere(vec3 normal) {
+    float radius=sqrt(randomFloat());
+    float angle=2.0*PI*randomFloat();
+    vec3 axis=abs(normal.y)<0.99?vec3(0.0,1.0,0.0):vec3(1.0,0.0,0.0);
+    vec3 tangent=normalize(cross(axis,normal));
+    vec3 bitangent=cross(normal,tangent);
+    return normalize(tangent*(radius*cos(angle))+bitangent*(radius*sin(angle))
+            +normal*sqrt(max(0.0,1.0-radius*radius)));
+}
+
+vec3 environmentRadiance(vec3 direction) {
+    float height=clamp(0.5+0.5*direction.y,0.0,1.0);
+    float gradient=pow(height,0.8);
+    vec3 nightSky=mix(vec3(0.004,0.006,0.015),vec3(0.018,0.026,0.055),gradient);
+    vec3 daySky=mix(vec3(0.18,0.28,0.46),vec3(0.24,0.43,0.76),gradient);
+    vec3 sky=mix(nightSky,daySky,daylightFactor);
+    float rain=clamp(irisFrame.previousCameraAndRain.w,0.0,1.0);
+    sky=mix(sky,vec3(0.22,0.24,0.27),rain*0.75);
+    float sunDisk=smoothstep(cos(radians(0.32)),cos(radians(0.28)),dot(direction,sunDirection));
+    float moonDisk=smoothstep(cos(radians(0.30)),cos(radians(0.26)),dot(direction,moonDirection));
+    return sky+vec3(24.0)*daylightFactor*sunDisk+moonIrradiance*12.0*moonDisk;
+}
+
+float rayOffset(Surface surface) {
+    return max(0.001,max(abs(surface.position.x),max(abs(surface.position.y),abs(surface.position.z)))*2.3841858e-7);
+}
+
+vec3 offsetOrigin(Surface surface,vec3 direction) {
+    float epsilon=rayOffset(surface);
+    return surface.position+surface.geometricNormal*(dot(surface.geometricNormal,direction)>=0.0?epsilon:-epsilon);
+}
+
+vec3 directionalLight(Surface surface,vec3 direction,vec3 irradiance) {
+    float nDotL=max(dot(surface.normal,direction),0.0);
+    if(nDotL<=0.0||max(max(irradiance.r,irradiance.g),irradiance.b)<=0.0) return vec3(0.0);
+    traceDetailed(offsetOrigin(surface,direction),direction,0u,0.0,0.0);
+    if(hit.distance>=0.0) return vec3(0.0);
+    return surface.color.rgb*irradiance*(nDotL/PI);
+}
+
+vec3 pathTrace(vec3 origin,vec3 direction,uint primaryVisibility,float primaryConeSpread) {
+    vec3 throughput=vec3(1.0);
+    vec3 radiance=vec3(0.0);
+    float coneWidth=0.0;
+    float coneSpread=primaryConeSpread;
+    uint visibility=primaryVisibility;
+
+    for(int bounce=0;bounce<MAX_BOUNCES;bounce++) {
+        traceDetailed(origin,direction,visibility,coneWidth,coneSpread);
+        if(bounce==0 && hit.distance<0.0 && visibility==VISIBILITY_VIEW_MODEL_ONLY) {
+            visibility=VISIBILITY_PRIMARY_CAMERA;
+            traceDetailed(origin,direction,visibility,coneWidth,coneSpread);
+        }
+        if(hit.distance<0.0) {
+            radiance+=throughput*environmentRadiance(direction);
+            break;
+        }
+
+        Surface surface=hit;
+        radiance+=throughput*emission(surface.material,surface.color.rgb);
+        radiance+=throughput*directionalLight(surface,sunDirection,sunIrradiance);
+        radiance+=throughput*directionalLight(surface,moonDirection,moonIrradiance);
+        if(bounce+1>=MAX_BOUNCES) break;
+
+        direction=cosineHemisphere(surface.normal);
+        throughput*=max(surface.color.rgb,vec3(0.0));
+        if(max(max(throughput.r,throughput.g),throughput.b)<1e-4) break;
+        origin=offsetOrigin(surface,direction);
+        coneWidth+=coneSpread*min(surface.distance,32.0);
+        coneSpread=max(coneSpread,0.25);
+        visibility=0u;
+    }
+    return radiance;
+}
+
+void main() {
+    ivec2 pixel=ivec2(gl_LaunchIDEXT.xy);
+    if(!irisFrameReady()) {
+        imageStore(outputImage,pixel,vec4(1.0,0.0,1.0,1.0));
+        return;
+    }
+
+    vec3 origin=camera.inverseView[3].xyz;
+    sunDirection=normalize(mat3(camera.inverseView)*irisFrame.sun.xyz);
+    moonDirection=normalize(mat3(camera.inverseView)*irisFrame.moon.xyz);
+    daylightFactor=smoothstep(-0.18,0.10,sunDirection.y);
+    sunIrradiance=vec3(6.0*daylightFactor);
+    float moonAngle=acos(cos(irisFrame.moon.w*PI/4.0));
+    float moonPhase=(sin(moonAngle)+(PI-moonAngle)*cos(moonAngle))/PI;
+    moonIrradiance=vec3(0.015*clamp(moonPhase,0.0,1.0)*(1.0-daylightFactor));
+    rng=uint(gl_LaunchIDEXT.x)*1973u+uint(gl_LaunchIDEXT.y)*9277u+camera.frame*26699u+911u;
+
+    vec3 color=vec3(0.0);
+    float coneSpread=2.0/max(float(gl_LaunchSizeEXT.y),1.0);
+    for(int sampleIndex=0;sampleIndex<SAMPLES_PER_PIXEL;sampleIndex++) {
+        vec2 sampleUv=(vec2(pixel)+vec2(randomFloat(),randomFloat()))/vec2(gl_LaunchSizeEXT.xy);
+        vec3 viewRay=mix(mix(camera.corners[0],camera.corners[2],sampleUv.y),
+                         mix(camera.corners[1],camera.corners[3],sampleUv.y),sampleUv.x);
+        vec3 direction=normalize(mat3(camera.inverseView)*viewRay);
+        color+=pathTrace(origin,direction,VISIBILITY_VIEW_MODEL_ONLY,coneSpread);
+    }
+    imageStore(outputImage,pixel,vec4(max(color/float(SAMPLES_PER_PIXEL),vec3(0.0)),1.0));
+}

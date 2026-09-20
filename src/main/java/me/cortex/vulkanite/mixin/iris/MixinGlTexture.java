@@ -3,17 +3,21 @@ package me.cortex.vulkanite.mixin.iris;
 import com.mojang.blaze3d.systems.RenderSystem;
 import me.cortex.vulkanite.client.Vulkanite;
 import me.cortex.vulkanite.compat.IVGImage;
+import me.cortex.vulkanite.compat.PackResourceScope;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
 import me.cortex.vulkanite.lib.memory.VGImage;
-import me.cortex.vulkanite.lib.other.FormatConverter;
-import net.coderbot.iris.gl.IrisRenderSystem;
-import net.coderbot.iris.gl.texture.GlTexture;
-import net.coderbot.iris.gl.texture.InternalTextureFormat;
-import net.coderbot.iris.gl.texture.TextureType;
-import net.coderbot.iris.shaderpack.texture.TextureFilteringData;
+import me.cortex.vulkanite.compat.IrisFormatConverter;
+import net.irisshaders.iris.gl.IrisRenderSystem;
+import net.irisshaders.iris.gl.texture.GlTexture;
+import net.irisshaders.iris.gl.texture.InternalTextureFormat;
+import net.irisshaders.iris.gl.texture.TextureType;
+import net.irisshaders.iris.shaderpack.texture.TextureFilteringData;
 import org.lwjgl.opengl.GL30;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.nio.ByteBuffer;
 
@@ -24,25 +28,30 @@ import static org.lwjgl.vulkan.VK10.*;
 public abstract class MixinGlTexture extends MixinGlResource implements IVGImage {
     @Unique private VGImage sharedImage;
 
-    @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/platform/GlStateManager;_genTexture()I"))
+    @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lcom/mojang/renderpearl/backend/opengl/GlStateManager;_genTexture()I"))
     private static int redirectGen() {
-        return -1;
+        return PackResourceScope.current().sharedCustomTextures() ? -1 : GlStateManager._genTexture();
     }
 
-    @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lnet/coderbot/iris/gl/texture/GlTexture;getGlId()I", ordinal = 0))
+    @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lnet/irisshaders/iris/gl/texture/GlTexture;getGlId()I", ordinal = 0))
     private int redirectTextureCreation(GlTexture instance, TextureType target, int sizeX, int sizeY, int sizeZ, int internalFormat, int format, int pixelType, byte[] pixels, TextureFilteringData filteringData) {
+        if (!PackResourceScope.current().sharedCustomTextures()) return this.getGlId();
         // Before getting the texture id, create the texture that wasn't created earlier
 
-        InternalTextureFormat textureFormat = FormatConverter.findFormatFromGlFormat(internalFormat);
-        int vkFormat = FormatConverter.getVkFormatFromGl(textureFormat);
+        InternalTextureFormat textureFormat = IrisFormatConverter.findFormatFromGlFormat(internalFormat);
+        int vkFormat = IrisFormatConverter.getVkFormatFromGl(textureFormat);
 
         // Clamp y,z to 1 as per VK spec
         sizeY = Math.max(sizeY, 1);
         sizeZ = Math.max(sizeZ, 1);
 
-        sharedImage = Vulkanite.INSTANCE.getCtx().memory
+        sharedImage = Vulkanite.getInstance().getCtx().memory
             .createSharedImage(
-                    (sizeZ == 1 && sizeY == 1? 1 : (sizeZ == 1?2:3)),
+                    switch (target) {
+                        case TEXTURE_1D -> 1;
+                        case TEXTURE_2D, TEXTURE_RECTANGLE -> 2;
+                        case TEXTURE_3D -> 3;
+                    },
                     sizeX,
                     sizeY,
                     sizeZ,
@@ -53,7 +62,7 @@ public abstract class MixinGlTexture extends MixinGlResource implements IVGImage
                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
         );
 
-        Vulkanite.INSTANCE.getCtx().cmd.executeWait(cmdbuf -> {
+        Vulkanite.getInstance().getCtx().cmd.executeWait(cmdbuf -> {
             cmdbuf.encodeImageTransition(sharedImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT, VK_REMAINING_MIP_LEVELS);
         });
 
@@ -62,11 +71,15 @@ public abstract class MixinGlTexture extends MixinGlResource implements IVGImage
         return sharedImage.glId;
     }
 
-    @Redirect(method="<init>", at = @At(value = "INVOKE", target = "Lnet/coderbot/iris/gl/texture/TextureType;apply(IIIIIIILjava/nio/ByteBuffer;)V"))
+    @Redirect(method="<init>", at = @At(value = "INVOKE", target = "Lnet/irisshaders/iris/gl/texture/TextureType;apply(IIIIIIILjava/nio/ByteBuffer;)V"))
     private void redirectUpload(TextureType instance, int glId, int width, int height, int depth, int internalFormat, int format, int pixelType, ByteBuffer data) {
+        if (sharedImage == null) {
+            instance.apply(glId, width, height, depth, internalFormat, format, pixelType, data);
+            return;
+        }
         int target = instance.getGlType();
 
-        RenderSystem.assertOnRenderThreadOrInit();
+        RenderSystem.assertOnRenderThread();
         IrisRenderSystem.bindTextureForSetup(target, glId);
 
         switch (instance) {
@@ -82,10 +95,12 @@ public abstract class MixinGlTexture extends MixinGlResource implements IVGImage
         }
     }
 
-    @Overwrite
-    protected void destroyInternal(){
-        glFinish();
-        sharedImage.free();
+    @Inject(method = "destroyInternal", at = @At("HEAD"), cancellable = true)
+    private void destroyShared(CallbackInfo ci) {
+        if (sharedImage == null) return;
+        Vulkanite.getInstance().addSyncedCallback(sharedImage::free);
+        sharedImage = null;
+        ci.cancel();
     }
 
     public VGImage getVGImage() {

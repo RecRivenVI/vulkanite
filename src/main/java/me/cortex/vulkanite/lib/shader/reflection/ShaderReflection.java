@@ -177,10 +177,6 @@ public class ShaderReflection {
                                 if (!b.runtimeSized && b.arraySize != binding.arraySize) {
                                     throw new IllegalStateException("Conflicting array sizes for binding " + binding.binding + " in set " + set);
                                 }
-                                // We don't check for name conflicts, but still warn
-                                if (!b.name.isEmpty() && !binding.name.isEmpty() && b.name.compareTo(binding.name) != 0) {
-                                    System.err.println("Warning: Conflicting names for binding " + binding.binding + " : " + b.name + " and " + binding.name);
-                                }
                                 alreadyExists = true;
                             }
                         }

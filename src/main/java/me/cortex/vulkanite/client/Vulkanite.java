@@ -1,23 +1,20 @@
 package me.cortex.vulkanite.client;
 
 import me.cortex.vulkanite.acceleration.AccelerationManager;
-import me.cortex.vulkanite.acceleration.SharedQuadVkIndexBuffer;
+import me.cortex.vulkanite.acceleration.SectionHandle;
+import me.cortex.vulkanite.acceleration.SectionMeshUpdate;
 import me.cortex.vulkanite.client.rendering.VulkanPipeline;
 import me.cortex.vulkanite.lib.base.VContext;
 import me.cortex.vulkanite.lib.base.initalizer.VInitializer;
 import me.cortex.vulkanite.lib.descriptors.VDescriptorPool;
 import me.cortex.vulkanite.lib.descriptors.VDescriptorSetLayout;
 import me.cortex.vulkanite.lib.descriptors.VTypedDescriptorPool;
-import me.jellysquid.mods.sodium.client.render.chunk.RenderSection;
-import me.jellysquid.mods.sodium.client.render.chunk.compile.ChunkBuildOutput;
-import net.minecraft.util.Util;
 import org.lwjgl.vulkan.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import static org.lwjgl.vulkan.EXTDebugUtils.VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 import static org.lwjgl.vulkan.EXTDescriptorIndexing.VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHR16bitStorage.VK_KHR_16BIT_STORAGE_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHR8bitStorage.VK_KHR_8BIT_STORAGE_EXTENSION_NAME;
@@ -43,36 +40,40 @@ import static org.lwjgl.vulkan.KHRShaderDrawParameters.VK_KHR_SHADER_DRAW_PARAME
 import static org.lwjgl.vulkan.KHRSpirv14.VK_KHR_SPIRV_1_4_EXTENSION_NAME;
 
 public class Vulkanite {
-    public static final boolean IS_WINDOWS = Util.getOperatingSystem() == Util.OperatingSystem.WINDOWS;
+    public static final boolean IS_WINDOWS = System.getProperty("os.name", "").startsWith("Windows");
 
-    public static boolean MEMORY_LEAK_TRACING = true;
 
     public static boolean IS_ENABLED = true;
-    public static final Vulkanite INSTANCE = new Vulkanite();
+    private static Vulkanite instance;
+
+    /** Only resource consumers may initialize Vulkan, never ordinary Minecraft ticks. */
+    public static Vulkanite getInstance() {
+        if (instance == null) instance = new Vulkanite();
+        return instance;
+    }
+
+    public static Vulkanite getIfInitialized() { return instance; }
 
     private final VContext ctx;
     private final ArbitarySyncPointCallback fencedCallback = new ArbitarySyncPointCallback();
 
     private final AccelerationManager accelerationManager;
+    private long activeTerrainGeneration = Long.MIN_VALUE;
+    private Throwable terrainFailure;
+    private Throwable fatalGpuFailure;
+    private final List<VulkanPipeline> quarantinedPipelines = new ArrayList<>();
     private final HashMap<VDescriptorSetLayout, VTypedDescriptorPool> descriptorPools = new HashMap<>();
 
     public Vulkanite() {
         ctx = createVulkanContext();
 
-        //Fill in the shared index buffer with a large count so we (hopefully) dont have to worry about it anymore
-        // SharedQuadVkIndexBuffer.getIndexBuffer(ctx, 30000);
-
         accelerationManager = new AccelerationManager(ctx, 1);
     }
 
-    public void upload(List<ChunkBuildOutput> results) {
-        /*
-        if (((IAccelerationBuildResult)result).getAccelerationGeometryData() == null)
-            return;//TODO: delete the chunk section in this case then or something
-        accelerationManager.chunkBuild(result);
-         */
-
-        accelerationManager.chunkBuilds(results);
+    public void upload(List<SectionMeshUpdate> results) {
+        long generation = me.cortex.vulkanite.compat.ActivePack.state().generation();
+        ensureTerrainGeneration(generation);
+        accelerationManager.chunkBuilds(results, generation);
     }
 
     public VTypedDescriptorPool getPoolByLayout(VDescriptorSetLayout layout) {
@@ -93,13 +94,36 @@ public class Vulkanite {
         }
     }
 
-    public void sectionRemove(RenderSection section) {
+    public void sectionRemove(SectionHandle section) {
         accelerationManager.sectionRemove(section);
     }
 
     public void renderTick() {
         ctx.sync.checkFences();
-        accelerationManager.updateTick();
+        var state = me.cortex.vulkanite.compat.ActivePack.state();
+        ensureTerrainGeneration(state.generation());
+        accelerationManager.updateTick(state.generation(), state.capabilities().sceneGeometry());
+    }
+
+    private void ensureTerrainGeneration(long generation) {
+        if (terrainFailure != null) {
+            if (me.cortex.vulkanite.compat.ActivePack.state().capabilities().needsVulkan())
+                throw new IllegalStateException("Vulkan terrain runtime failed earlier in this session", terrainFailure);
+            activeTerrainGeneration = generation;
+            return;
+        }
+        if (generation == activeTerrainGeneration) return;
+        if (activeTerrainGeneration != Long.MIN_VALUE) try { accelerationManager.cleanup(); }
+        catch (Throwable failure) {
+            terrainFailure = failure;
+            activeTerrainGeneration = generation;
+            if (me.cortex.vulkanite.compat.ActivePack.state().capabilities().needsVulkan())
+                throw new IllegalStateException("Vulkan terrain cleanup failed", failure);
+            org.slf4j.LoggerFactory.getLogger("Vulkanite").error(
+                    "Vulkan terrain cleanup failed; ordinary OpenGL rendering remains active", failure);
+            return;
+        }
+        activeTerrainGeneration = generation;
     }
 
     public void fenceTick() {
@@ -110,28 +134,48 @@ public class Vulkanite {
         return ctx;
     }
 
+    /** An unsafe device-idle failure makes later RT allocations invalid for this session. */
+    public void retainUnsafePipeline(VulkanPipeline pipeline, Throwable failure) {
+        if (fatalGpuFailure == null) fatalGpuFailure = failure;
+        if (!quarantinedPipelines.contains(pipeline)) quarantinedPipelines.add(pipeline);
+        org.slf4j.LoggerFactory.getLogger("Vulkanite").error(
+                "Vulkan pipeline cleanup could not confirm safe release; RT is disabled for this session", failure);
+    }
+
+    public void assertRtAvailable() {
+        if (fatalGpuFailure != null)
+            throw new IllegalStateException("Vulkan RT is unavailable after an earlier device/cleanup failure", fatalGpuFailure);
+        if (terrainFailure != null)
+            throw new IllegalStateException("Vulkan RT is unavailable after an earlier terrain cleanup failure", terrainFailure);
+    }
+
     public void addSyncedCallback(Runnable callback) {
         fencedCallback.enqueue(callback);
     }
 
     public void destroy() {
-        for (var pool : descriptorPools.values()) {
-            pool.free();
+        // Sodium can recreate section managers while Iris retains the shader pipeline.
+        // Descriptor pools belong to that pipeline and are released with its layouts.
+        if ((terrainFailure != null || fatalGpuFailure != null)
+                && !me.cortex.vulkanite.compat.ActivePack.state().capabilities().needsVulkan()) return;
+        try { accelerationManager.cleanup(); }
+        catch (Throwable failure) {
+            if (terrainFailure == null) terrainFailure = failure;
+            if (me.cortex.vulkanite.compat.ActivePack.state().capabilities().needsVulkan())
+                throw new IllegalStateException("Vulkan terrain cleanup failed", failure);
+            org.slf4j.LoggerFactory.getLogger("Vulkanite").error(
+                    "Vulkan terrain cleanup failed during world teardown; OpenGL remains available", failure);
         }
-        accelerationManager.cleanup();
     }
 
     private static VContext createVulkanContext() {
-        var init = new VInitializer("Vulkan test", "Vulkanite", 1, 3,
+        var init = new VInitializer("Vulkanite", "Vulkanite", 1, 3,
                 new String[]{VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
                         VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME,
                         VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME,
                         VK_KHR_EXTERNAL_FENCE_CAPABILITIES_EXTENSION_NAME,
-                        //VK_EXT_DEBUG_UTILS_EXTENSION_NAME
                 },
-                new String[] {
-                        //"VK_LAYER_KHRONOS_validation",
-                });
+                new String[0]);
 
         //This copies whatever gpu the opengl context is on
         init.findPhysicalDevice();//glGetString(GL_RENDERER).split("/")[0]
@@ -160,10 +204,12 @@ public class Vulkanite {
                     VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME,
                     VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME));
         }
+        boolean samplerAnisotropy=init.supportsSamplerAnisotropy();
         init.createDevice(extensions,
                 List.of(),
                 new float[]{1.0f, 0.9f},
-                features -> features.shaderInt16(true).shaderInt64(true).multiDrawIndirect(true), List.of(
+                features -> features.shaderInt16(true).shaderInt64(true).multiDrawIndirect(true)
+                        .shaderStorageImageExtendedFormats(true).samplerAnisotropy(samplerAnisotropy), List.of(
                         stack-> VkPhysicalDeviceAccelerationStructureFeaturesKHR.calloc(stack)
                                 .sType$Default(),
 

@@ -1,7 +1,7 @@
 package me.cortex.vulkanite.mixin.iris;
 
 import com.google.common.collect.ImmutableList;
-import net.coderbot.iris.shaderpack.include.ShaderPackSourceNames;
+import net.irisshaders.iris.shaderpack.include.ShaderPackSourceNames;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -13,6 +13,9 @@ public class MixinShaderPackSourceNames {
     private static void injectRaytraceShaderNames(CallbackInfoReturnable<ImmutableList<String>> cir) {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         builder.addAll(cir.getReturnValue());
+        // IncludeProcessor only indexes recognized source roots. Make the Vulkanite
+        // sidecar available through the same Iris sourceProvider as ray programs.
+        builder.add("vulkanite.properties");
         for (int i = 0; i < 3; i++) {
             builder.add("ray"+i+".rgen");
             for (int j = 0; j < 4; j++) {

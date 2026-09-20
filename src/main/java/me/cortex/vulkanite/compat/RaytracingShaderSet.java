@@ -23,6 +23,7 @@ public class RaytracingShaderSet {
     public RaytracingShaderSet(VContext ctx, RaytracingShaderSource source) {
         List<VShader> shaderList = new ArrayList<>();
 
+        try {
         VShader shader = VShader.compileLoad(ctx, source.raygen, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
         shaderList.add(shader);
         this.raygen = shader.named();
@@ -62,6 +63,13 @@ public class RaytracingShaderSet {
             this.rayhits[i] = new RayHit(close, any, intersection);
         }
         this.allShader = shaderList.toArray(new VShader[0]);
+        } catch (RuntimeException | Error failure) {
+            for (var compiled : shaderList) {
+                try { compiled.free(); }
+                catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+            }
+            throw failure;
+        }
     }
 
     public void apply(RaytracePipelineBuilder builder) {

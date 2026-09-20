@@ -50,7 +50,7 @@ public class VmaAllocator {
         }
 
         try (var stack = stackPush()) {
-            var pImageFormatProperties = VkImageFormatProperties.callocStack(stack);
+            var pImageFormatProperties = VkImageFormatProperties.calloc(stack);
             var result = vkGetPhysicalDeviceImageFormatProperties(device.getPhysicalDevice(), imageCreateInfo.format(),
                     imageCreateInfo.imageType(), imageCreateInfo.tiling(), imageCreateInfo.usage(),
                     imageCreateInfo.flags(), pImageFormatProperties);
@@ -215,10 +215,9 @@ public class VmaAllocator {
             PointerBuffer pa = stack.mallocPointer(1);
             VmaAllocationInfo vai = VmaAllocationInfo.calloc();
             _CHECK_(
-                    vmaCreateBufferWithAlignment(allocator,
+                    vmaCreateBuffer(allocator,
                             bufferCreateInfo,
-                            allocationCreateInfo.pool(pool),
-                            alignment,
+                            allocationCreateInfo.pool(pool).minAlignment(alignment),
                             pb,
                             pa,
                             vai),

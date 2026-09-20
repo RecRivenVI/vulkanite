@@ -8,6 +8,8 @@ import org.lwjgl.vulkan.*;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -144,21 +146,39 @@ public class SyncManager {
         }
     }
 
+    public int pendingCallbackFences() {
+        synchronized (callbacks) { return callbacks.size(); }
+    }
+
     //TODO: optimize this
     public void checkFences() {
+        List<Runnable> ready = new ArrayList<>();
+        Throwable failure = null;
         synchronized (callbacks) {
-            List<VFence> toRemove = new LinkedList<>();
-            for (var cb : callbacks.entrySet()) {
+            Iterator<Map.Entry<VFence, List<Runnable>>> entries = callbacks.entrySet().iterator();
+            while (entries.hasNext()) {
+                var cb = entries.next();
                 int status = vkGetFenceStatus(device, cb.getKey().address());
                 if (status == VK_SUCCESS) {
-                    cb.getValue().forEach(Runnable::run);
-                    toRemove.add(cb.getKey());
+                    // Retire before invoking callbacks: one may destroy the fence or throw.
+                    ready.addAll(cb.getValue());
+                    entries.remove();
                 } else if (status == VK_NOT_READY) {
                     continue;
+                } else try { _CHECK_(status); }
+                catch (Throwable statusFailure) {
+                    if (failure == null) failure = statusFailure;
+                    else failure.addSuppressed(statusFailure);
                 }
-                _CHECK_(status);
             }
-            toRemove.forEach(callbacks::remove);
         }
+        for (var callback : ready) try { callback.run(); }
+        catch (Throwable callbackFailure) {
+            if (failure == null) failure = callbackFailure;
+            else failure.addSuppressed(callbackFailure);
+        }
+        if (failure instanceof Error error) throw error;
+        if (failure instanceof RuntimeException runtime) throw runtime;
+        if (failure != null) throw new IllegalStateException("Fence callbacks failed", failure);
     }
 }

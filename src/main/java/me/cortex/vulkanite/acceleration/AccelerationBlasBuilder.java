@@ -5,7 +5,7 @@ package me.cortex.vulkanite.acceleration;
 // then memory copies over to main, while doing compaction
 
 import me.cortex.vulkanite.client.Vulkanite;
-import me.cortex.vulkanite.compat.IAccelerationBuildResult;
+import me.cortex.vulkanite.lib.base.TrackedResourceObject;
 import me.cortex.vulkanite.lib.base.VContext;
 import me.cortex.vulkanite.lib.cmd.VCmdBuff;
 import me.cortex.vulkanite.lib.cmd.VCommandPool;
@@ -21,10 +21,6 @@ import me.cortex.vulkanite.lib.pipeline.VComputePipeline;
 import me.cortex.vulkanite.lib.shader.ShaderCompiler;
 import me.cortex.vulkanite.lib.shader.ShaderModule;
 import me.cortex.vulkanite.lib.shader.VShader;
-import me.jellysquid.mods.sodium.client.render.chunk.compile.ChunkBuildOutput;
-import me.jellysquid.mods.sodium.client.render.chunk.data.BuiltSectionMeshParts;
-import me.jellysquid.mods.sodium.client.render.chunk.terrain.DefaultTerrainRenderPasses;
-import me.jellysquid.mods.sodium.client.util.NativeBuffer;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
@@ -42,15 +38,111 @@ import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK12.*;
 
 public class AccelerationBlasBuilder {
+    private static final int MAX_JOBS_PER_BATCH = 16;
     private final VContext context;
     private record BLASTriangleData(int quadCount, int geometryFlags) {}
     private record BLASBuildJob(List<BLASTriangleData> geometries, JobPassThroughData data) {}
     public record BLASBuildResult(VAccelerationStructure structure, JobPassThroughData data) {}
     public record BLASBatchResult(List<BLASBuildResult> results, VSemaphore semaphore) { }
     private final Thread worker;
+    private final Object idleMonitor = new Object();
+    private int pendingBatches;
+    private volatile Throwable workerFailure;
+    private final List<TrackedResourceObject> quarantinedAfterDeviceFailure = new ArrayList<>();
+
+    /** Owns one worker batch until its results and fence callback take over. */
+    private final class BatchResources {
+        final List<TrackedResourceObject> allocated = new ArrayList<>();
+        final Set<TrackedResourceObject> callbackOwned = Collections.newSetFromMap(new IdentityHashMap<>());
+        final List<BLASBuildJob> jobs;
+        boolean published;
+
+        BatchResources(List<BLASBuildJob> jobs) { this.jobs = jobs; }
+        <T extends TrackedResourceObject> T own(T resource) { allocated.add(resource); return resource; }
+        void callbackOwn(TrackedResourceObject resource) { callbackOwned.add(resource); }
+
+        boolean failed(Throwable failure) {
+            try {
+                // Only an idle queue makes unsubmitted/partially submitted resources safe to free.
+                context.cmd.waitQueueIdle(asyncQueue);
+            } catch (Throwable unsafe) {
+                failure.addSuppressed(unsafe);
+                synchronized (quarantinedAfterDeviceFailure) {
+                    quarantinedAfterDeviceFailure.addAll(allocated);
+                    for (var job : jobs) quarantinedAfterDeviceFailure.addAll(job.data.geometryBuffers());
+                }
+                return false;
+            }
+            for (int i = allocated.size() - 1; i >= 0; i--) {
+                var resource = allocated.get(i);
+                if (resource.isFreed() || callbackOwned.contains(resource)
+                        || published && (resource instanceof VSemaphore || resource instanceof VAccelerationStructure)) continue;
+                try {
+                    if (resource instanceof VCmdBuff cmd) sinlgeUsePool.releaseNow(cmd);
+                    else resource.free();
+                } catch (Throwable releaseFailure) { failure.addSuppressed(releaseFailure); }
+            }
+            if (!published) for (var job : jobs) for (var buffer : job.data.geometryBuffers()) {
+                if (!buffer.isFreed()) try { buffer.free(); }
+                catch (Throwable releaseFailure) { failure.addSuppressed(releaseFailure); }
+            }
+            return true;
+        }
+    }
+
+    public void awaitIdle() {
+        long deadline = System.nanoTime() + 30_000_000_000L;
+        synchronized (idleMonitor) {
+            while (pendingBatches != 0) {
+                if (System.nanoTime() >= deadline) throw new IllegalStateException("Timed out draining BLAS worker");
+                try { idleMonitor.wait(100); }
+                catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException(e); }
+            }
+            if (workerFailure != null) throw new IllegalStateException("BLAS worker failed", workerFailure);
+        }
+    }
+    public boolean isDrained() {
+        synchronized (idleMonitor) { return pendingBatches == 0; }
+    }
+    public void assertHealthy() {
+        if (workerFailure != null) throw new IllegalStateException("BLAS worker failed; Vulkan terrain is unavailable", workerFailure);
+    }
+    /** Fence callbacks enqueue command frees; a next BLAS batch is not guaranteed. */
+    public void drainRetiredCommands() {
+        sinlgeUsePool.doReleases();
+        uploadPool.doReleases();
+    }
+
+    /** Called only after both queues are idle and fence callbacks were retired. */
+    public void drainQuarantinedAfterIdle() {
+        List<TrackedResourceObject> retained;
+        synchronized (quarantinedAfterDeviceFailure) {
+            retained = new ArrayList<>(quarantinedAfterDeviceFailure);
+            quarantinedAfterDeviceFailure.clear();
+        }
+        Throwable failure = null;
+        Set<TrackedResourceObject> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (var resource : retained) {
+            if (!seen.add(resource) || resource.isFreed()) continue;
+            try {
+                if (resource instanceof VCmdBuff cmd) sinlgeUsePool.releaseNow(cmd);
+                else resource.free();
+            } catch (Throwable releaseFailure) {
+                if (failure == null) failure = releaseFailure;
+                else failure.addSuppressed(releaseFailure);
+                if (!resource.isFreed()) synchronized (quarantinedAfterDeviceFailure) {
+                    quarantinedAfterDeviceFailure.add(resource);
+                }
+            }
+        }
+        if (failure instanceof Error error) throw error;
+        if (failure instanceof RuntimeException runtime) throw runtime;
+        if (failure != null) throw new IllegalStateException("Quarantined BLAS resources could not be released", failure);
+    }
     private final int asyncQueue;
     private final Consumer<BLASBatchResult> resultConsumer;
     private final VCommandPool sinlgeUsePool;
+    private final VCommandPool uploadPool;
 
     private final VQueryPool queryPool;
 
@@ -62,6 +154,7 @@ public class AccelerationBlasBuilder {
 
     public AccelerationBlasBuilder(VContext context, int asyncQueue, Consumer<BLASBatchResult> resultConsumer) {
         this.sinlgeUsePool = context.cmd.createSingleUsePool();
+        this.uploadPool = context.cmd.createSingleUsePool();
         this.queryPool = new VQueryPool(context.device, 10000, VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR);
         this.context = context;
         this.asyncQueue = asyncQueue;
@@ -88,6 +181,12 @@ public class AccelerationBlasBuilder {
                             i16vec2 blockId;
                             i8vec3 midBlock;
                             int8_t padB__;
+                            uint overlayUV;
+                            uint overlayColor;
+                            uint layerFlags;
+                            uint reserved0;
+                            uint reserved1;
+                            uint reserved2;
                         };
                         
                         layout(buffer_reference, std430) buffer InputVertices {
@@ -128,6 +227,13 @@ public class AccelerationBlasBuilder {
 
         worker = new Thread(this::run);
         worker.setName("Acceleration blas worker");
+        worker.setDaemon(true);
+        worker.setUncaughtExceptionHandler((thread, error) -> {
+            workerFailure = error;
+            org.slf4j.LoggerFactory.getLogger("Vulkanite/BLAS")
+                    .error("Acceleration builder stopped after a GPU failure", error);
+            synchronized (idleMonitor) { idleMonitor.notifyAll(); }
+        });
         worker.start();
     }
 
@@ -135,39 +241,29 @@ public class AccelerationBlasBuilder {
     private void run() {
         MemoryStack bigStack = MemoryStack.create(20_000_000);
 
-        List<BLASBuildJob> jobs = new ArrayList<>();
         while (true) {
+            List<BLASBuildJob> jobs;
             {
-                jobs.clear();
                 try {
                     awaitingJobBatchess.acquire();
                 } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+                    Thread.currentThread().interrupt();
+                    return;
                 }
-                int i = -1;
-                //Collect the job batch
-                while (!this.batchedJobs.isEmpty()) {
-                    i++;
-                    jobs.addAll(this.batchedJobs.poll());
-                }
-                if (i > 0) {
-                    //This updates the semaphore to be accurate, should be able to grab exactly i permits (number of batches)
-                    try {
-                        awaitingJobBatchess.acquire(i);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
+                // Publish bounded groups independently. Draining the full queue here
+                // made the first updated section wait for every streamed section to
+                // finish building and compacting before any result reached the TLAS.
+                jobs = batchedJobs.poll();
+                if (jobs == null) continue;
             }
-            sinlgeUsePool.doReleases();
-            if (jobs.size() > 100) {
-                System.err.println("EXCESSIVE JOBS FOR SOME REASON AAAAAAAAAA");
-                //while (true);
-            }
+            BatchResources owned = null;
+            boolean failed = false;
+            try {
+                owned = new BatchResources(jobs);
+                sinlgeUsePool.doReleases();
             //Jobs are batched and built on the async vulkan queue then block synchronized with fence
             // which then results in compaction and dispatch to consumer
 
-            //TODO: clean up this spaghetti shithole
             try (var stack = bigStack.push()) {
                 var buildInfos = VkAccelerationStructureBuildGeometryInfoKHR.calloc(jobs.size(), stack);
                 PointerBuffer buildRanges = stack.mallocPointer(jobs.size());
@@ -177,7 +273,7 @@ public class AccelerationBlasBuilder {
                 var scratchBuffers = new VBuffer[jobs.size()];
                 var accelerationStructures = new VAccelerationStructure[jobs.size()];
 
-                var uploadBuildCmd = sinlgeUsePool.createCommandBuffer();
+                var uploadBuildCmd = owned.own(sinlgeUsePool.createCommandBuffer());
                 uploadBuildCmd.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
                 //Fill in the buildInfo and buildRanges
@@ -206,6 +302,7 @@ public class AccelerationBlasBuilder {
                                     | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                             0, 0);
+                    owned.own(buildBuffer);
                     buffersToFree.add(buildBuffer);
                     var buildBufferAddr = buildBuffer.deviceAddress();
                     long buildBufferOffset = 0;
@@ -228,9 +325,10 @@ public class AccelerationBlasBuilder {
                         vkCmdPushConstants(uploadBuildCmd.buffer, gpuVertexDecodePipeline.layout(), VK_SHADER_STAGE_ALL, 0, pushConstant);
                         vkCmdDispatch(uploadBuildCmd.buffer, Math.min((geometry.quadCount * 4 + 255) / 256, 128), 1, 1);
 
-                        VkDeviceOrHostAddressConstKHR indexData = SharedQuadVkIndexBuffer.getIndexBuffer(context,
+                        VkDeviceOrHostAddressConstKHR indexData = VkDeviceOrHostAddressConstKHR.calloc(stack)
+                                .deviceAddress(SharedQuadVkIndexBuffer.getIndexBufferAddress(context,
                                 uploadBuildCmd,
-                                Integer.max(geometry.quadCount, 30000));
+                                Integer.max(geometry.quadCount, 30000)));
                         int indexType = SharedQuadVkIndexBuffer.TYPE;
 
                         VkDeviceOrHostAddressConstKHR vertexData = VkDeviceOrHostAddressConstKHR.calloc(stack)
@@ -286,10 +384,12 @@ public class AccelerationBlasBuilder {
 
                     var structure = context.memory.createAcceleration(buildSizesInfo.accelerationStructureSize(), 256,
                             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR, VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR);
+                    owned.own(structure);
 
                     var scratch = context.memory.createBuffer(buildSizesInfo.buildScratchSize(),
                             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 256, 0);
+                    owned.own(scratch);
 
                     bi.scratchData(VkDeviceOrHostAddressKHR.calloc(stack).deviceAddress(scratch.deviceAddress()));
                     bi.dstAccelerationStructure(structure.structure);
@@ -304,7 +404,7 @@ public class AccelerationBlasBuilder {
                 buildRanges.rewind();
                 pAccelerationStructures.rewind();
 
-                VSemaphore link = context.sync.createBinarySemaphore();
+                VSemaphore link = owned.own(context.sync.createBinarySemaphore());
                 {
                     vkCmdBuildAccelerationStructuresKHR(uploadBuildCmd.buffer, buildInfos, buildRanges);
 
@@ -321,7 +421,7 @@ public class AccelerationBlasBuilder {
 
                     uploadBuildCmd.end();
 
-                    VFence buildFence = context.sync.createFence();
+                    VFence buildFence = owned.own(context.sync.createFence());
                     context.cmd.submit(asyncQueue, new VCmdBuff[]{uploadBuildCmd}, new VSemaphore[0], new int[0],
                             new VSemaphore[]{link},
                             buildFence);
@@ -349,7 +449,7 @@ public class AccelerationBlasBuilder {
                 }
 
                 long[] compactedSizes = queryPool.getResultsLong(jobs.size());
-                VSemaphore awaitSemaphore = context.sync.createBinarySemaphore();
+                VSemaphore awaitSemaphore = owned.own(context.sync.createBinarySemaphore());
 
                 VAccelerationStructure[] compactedAS = new VAccelerationStructure[jobs.size()];
 
@@ -359,7 +459,7 @@ public class AccelerationBlasBuilder {
 
                 //---------------------
                 {
-                    var cmd = sinlgeUsePool.createCommandBuffer();
+                    var cmd = owned.own(sinlgeUsePool.createCommandBuffer());
                     cmd.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
                     //Dont need a memory barrier cause submit ensures cache flushing already
@@ -367,6 +467,7 @@ public class AccelerationBlasBuilder {
                     for (int idx = 0; idx < compactedSizes.length; idx++) {
                         var as = context.memory.createAcceleration(compactedSizes[idx], 256,
                                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR, VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR);
+                        owned.own(as);
 
                         vkCmdCopyAccelerationStructureKHR(cmd.buffer, VkCopyAccelerationStructureInfoKHR.calloc(stack).sType$Default()
                                 .src(accelerationStructures[idx].structure)
@@ -380,7 +481,7 @@ public class AccelerationBlasBuilder {
 
                     vkCmdPipelineBarrier(cmd.buffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, null, null, null);
 
-                    VFence fence = context.sync.createFence();
+                    VFence fence = owned.own(context.sync.createFence());
 
                     cmd.end();
                     context.cmd.submit(asyncQueue, new VCmdBuff[]{cmd},
@@ -389,19 +490,22 @@ public class AccelerationBlasBuilder {
                             new VSemaphore[]{awaitSemaphore},
                             fence);
 
-                    context.sync.addCallback(fence, () -> {
-                        for (var as : accelerationStructures) {
-                            as.free();
-                        }
-
-                        sinlgeUsePool.releaseNow(cmd);
-                        fence.free();
-                        link.free();
-                    });
+                    List<Runnable> retirement = new ArrayList<>();
+                    for (var as : accelerationStructures) retirement.add(as::free);
+                    retirement.add(cmd::enqueueFree);
+                    retirement.add(link::free);
+                    retirement.add(fence::free);
+                    context.sync.addCallback(fence, () ->
+                            me.cortex.vulkanite.lib.other.sync.FenceCallbacks.runAll(retirement.toArray(Runnable[]::new)));
+                    for (var as : accelerationStructures) owned.callbackOwn(as);
+                    owned.callbackOwn(cmd);
+                    owned.callbackOwn(fence);
+                    owned.callbackOwn(link);
                 }
 
                 //Submit to callback, linking the build semaphore so that we dont stall the queue more than we need
                 resultConsumer.accept(new BLASBatchResult(results, awaitSemaphore));
+                owned.published = true;
 
                 //TODO: FIXME, so there is an issue in that the query pool needs to be represented per thing
                 // since the cpu can run ahead of the gpu, need multiple query pools until we know the gpu is finished with it
@@ -414,65 +518,136 @@ public class AccelerationBlasBuilder {
 
                 //vkDeviceWaitIdle(context.device);
             }
+            } catch (Throwable failure) {
+                failed = true;
+                workerFailure = failure;
+                boolean safeToRelease = false;
+                try {
+                    if (owned != null) safeToRelease = owned.failed(failure);
+                    else {
+                        context.cmd.waitQueueIdle(asyncQueue);
+                        safeToRelease = true;
+                        for (var job : jobs) for (var buffer : job.data.geometryBuffers())
+                            if (!buffer.isFreed()) try { buffer.free(); }
+                            catch (Throwable releaseFailure) { failure.addSuppressed(releaseFailure); }
+                    }
+                }
+                catch (Throwable cleanupFailure) { failure.addSuppressed(cleanupFailure); }
+                if (owned == null && !safeToRelease) synchronized (quarantinedAfterDeviceFailure) {
+                    for (var job : jobs) quarantinedAfterDeviceFailure.addAll(job.data.geometryBuffers());
+                }
+                List<BLASBuildJob> abandoned = new ArrayList<>();
+                int abandonedBatches = 0;
+                synchronized (idleMonitor) {
+                    List<BLASBuildJob> pending;
+                    while ((pending = batchedJobs.poll()) != null) {
+                        abandoned.addAll(pending);
+                        abandonedBatches++;
+                    }
+                }
+                // These jobs never reached the worker's command buffer. Their uploads
+                // completed synchronously in enqueue, so only Vulkanite owns them.
+                for (var job : abandoned) for (var buffer : job.data.geometryBuffers()) {
+                    if (!safeToRelease) {
+                        synchronized (quarantinedAfterDeviceFailure) { quarantinedAfterDeviceFailure.add(buffer); }
+                    } else if (!buffer.isFreed()) try { buffer.free(); }
+                    catch (Throwable releaseFailure) { failure.addSuppressed(releaseFailure); }
+                }
+                synchronized (idleMonitor) {
+                    pendingBatches -= 1 + abandonedBatches;
+                    if (pendingBatches < 0) {
+                        failure.addSuppressed(new IllegalStateException("BLAS pending batch accounting underflow"));
+                        pendingBatches = 0;
+                    }
+                    idleMonitor.notifyAll();
+                }
+                org.slf4j.LoggerFactory.getLogger("Vulkanite/BLAS").error("BLAS worker stopped; refusing new terrain builds", failure);
+                return;
+            } finally {
+                if (!failed) synchronized (idleMonitor) { pendingBatches--; idleMonitor.notifyAll(); }
+            }
         }
     }
 
 
-
-    private VBuffer uploadTerrainGeometry(BuiltSectionMeshParts meshParts, VCmdBuff cmd) {
-        var buff = context.memory.createBuffer(meshParts.getVertexData().getLength(),
-                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-        cmd.encodeDataUpload(context.memory, MemoryUtil.memAddress(meshParts.getVertexData().getDirectBuffer()), buff, 0, meshParts.getVertexData().getLength());
-
-        return buff;
-    }
 
     //Enqueues jobs of section blas builds
-    public void enqueue(List<ChunkBuildOutput> batch) {
-        var cmd = sinlgeUsePool.createCommandBuffer();
+    public void enqueue(List<SectionMeshUpdate> batch) {
+        if (workerFailure != null) throw new IllegalStateException("BLAS worker is unavailable", workerFailure);
+        var cmd = uploadPool.createCommandBuffer();
         boolean hasJobs = false;
-
+        boolean uploaded = false;
+        boolean released = false;
+        boolean handedOff = false;
         List<BLASBuildJob> jobs = new ArrayList<>(batch.size());
-        for (ChunkBuildOutput cbr : batch) {
-            var acbr = ((IAccelerationBuildResult) cbr).getAccelerationGeometryData();
-            if (acbr == null)
-                continue;
-            List<BLASTriangleData> buildData = new ArrayList<>();
-            List<VBuffer> geometryBuffers = new ArrayList<>();
-            for (var entry : acbr.entrySet()) {
-                int flag = entry.getKey() == DefaultTerrainRenderPasses.SOLID ? VK_GEOMETRY_OPAQUE_BIT_KHR : 0;
-                buildData.add(new BLASTriangleData(entry.getValue().quadCount(), flag));
-
-                var geometry = cbr.getMesh(entry.getKey());
-                if (geometry.getVertexData().getLength() == 0) {
-                    throw new IllegalStateException();
+        List<List<BLASBuildJob>> queuedBatches = new ArrayList<>();
+        List<VBuffer> createdBuffers = new ArrayList<>();
+        try {
+            for (var update : batch) {
+                List<BLASTriangleData> buildData = new ArrayList<>();
+                List<VBuffer> geometryBuffers = new ArrayList<>();
+                for (var mesh : update.meshes()) {
+                    var vertices = mesh.vertices();
+                    if (mesh.canonicalQuadCount() < 0 || (long) mesh.canonicalQuadCount() * 4
+                            * SectionMeshUpdate.VERTEX_STRIDE > vertices.remaining())
+                        throw new IllegalStateException("Terrain layer buffer has fewer canonical vertices than declared");
+                    if (mesh.canonicalQuadCount() == 0) continue;
+                    buildData.add(new BLASTriangleData(mesh.canonicalQuadCount(), mesh.geometryFlags()));
+                    if (!hasJobs) { hasJobs = true; cmd.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); }
+                    var buffer = context.memory.createBuffer(vertices.remaining(),
+                            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+                    createdBuffers.add(buffer);
+                    cmd.encodeDataUpload(context.memory, MemoryUtil.memAddress(vertices), buffer, 0, vertices.remaining());
+                    geometryBuffers.add(buffer);
                 }
-
-                if (!hasJobs) {
-                    hasJobs = true;
-                    cmd.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+                if (!buildData.isEmpty()) {
+                    jobs.add(new BLASBuildJob(buildData,
+                            new JobPassThroughData(update.section(), update.revision(), update.generation(), geometryBuffers)));
                 }
-
-                geometryBuffers.add(uploadTerrainGeometry(geometry, cmd));
             }
 
-            if (buildData.size() > 0) {
-                jobs.add(new BLASBuildJob(buildData,
-                        new JobPassThroughData(cbr.render, cbr.buildTime, geometryBuffers)));
+            if (hasJobs) {
+                cmd.end();
+                context.cmd.submitOnceAndWait(asyncQueue, cmd);
+                uploaded = true;
+            } else {
+                uploadPool.releaseNow(cmd);
+                released = true;
             }
+            if (jobs.isEmpty()) return;
+            int batchCount = (jobs.size() + MAX_JOBS_PER_BATCH - 1) / MAX_JOBS_PER_BATCH;
+            for (int start = 0; start < jobs.size(); start += MAX_JOBS_PER_BATCH) {
+                int end = Math.min(start + MAX_JOBS_PER_BATCH, jobs.size());
+                var group = new ArrayList<>(jobs.subList(start, end));
+                queuedBatches.add(group);
+            }
+            synchronized (idleMonitor) {
+                if (workerFailure != null) throw new IllegalStateException("BLAS worker failed during upload", workerFailure);
+                queuedBatches.forEach(batchedJobs::add);
+                pendingBatches += batchCount;
+                handedOff = true;
+                awaitingJobBatchess.release(batchCount);
+            }
+        } catch (Throwable failure) {
+            if (!handedOff) {
+                queuedBatches.forEach(batchedJobs::remove);
+                boolean safeToRelease = !hasJobs || uploaded;
+                if (hasJobs && !uploaded) try {
+                    context.cmd.waitQueueIdle(asyncQueue);
+                    safeToRelease = true;
+                } catch (Throwable unsafe) { failure.addSuppressed(unsafe); }
+                if (safeToRelease) {
+                    if (!uploaded && !released && !cmd.isFreed()) try { uploadPool.releaseNow(cmd); }
+                    catch (Throwable releaseFailure) { failure.addSuppressed(releaseFailure); }
+                    for (var buffer : createdBuffers) if (!buffer.isFreed()) try { buffer.free(); }
+                    catch (Throwable releaseFailure) { failure.addSuppressed(releaseFailure); }
+                } else synchronized (quarantinedAfterDeviceFailure) {
+                    if (!cmd.isFreed()) quarantinedAfterDeviceFailure.add(cmd);
+                    quarantinedAfterDeviceFailure.addAll(createdBuffers);
+                }
+            }
+            throw failure;
         }
-
-        if (hasJobs) {
-            cmd.end();
-            context.cmd.submitOnceAndWait(asyncQueue, cmd);
-        }
-
-        if (jobs.isEmpty()) {
-            return;//No jobs to do
-        }
-        batchedJobs.add(jobs);
-        awaitingJobBatchess.release();
     }
 }

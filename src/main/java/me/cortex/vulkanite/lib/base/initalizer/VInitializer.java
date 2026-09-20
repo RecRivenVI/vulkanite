@@ -8,7 +8,6 @@ import org.lwjgl.system.Struct;
 import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -17,7 +16,6 @@ import java.util.function.Function;
 
 import static me.cortex.vulkanite.lib.other.VUtil._CHECK_;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK11.*;
 
@@ -31,8 +29,8 @@ public class VInitializer {
             VkApplicationInfo appInfo = VkApplicationInfo.calloc(stack)
                     .sType$Default()
                     .apiVersion(VK_MAKE_VERSION(major, minor, 0))
-                    .pApplicationName(memUTF8(appName))
-                    .pEngineName(memUTF8(engineName));
+                    .pApplicationName(stack.UTF8(appName))
+                    .pEngineName(stack.UTF8(engineName));
 
             VkInstanceCreateInfo instanceCreateInfo = VkInstanceCreateInfo.calloc(stack)
                     .sType$Default()
@@ -51,18 +49,23 @@ public class VInitializer {
         try (MemoryStack stack = stackPush()) {
             PointerBuffer devices = getPhysicalDevices(stack);
             for (int i = 0; i < devices.capacity(); i++) {
-                VkPhysicalDeviceProperties props = VkPhysicalDeviceProperties.calloc(stack);
-                vkGetPhysicalDeviceProperties(new VkPhysicalDevice(devices.get(i), instance), props);
-                System.out.println(props.deviceNameString());
                 physicalDevice = new VkPhysicalDevice(devices.get(i), instance);
                 break;
             }
         }
     }
 
+    public boolean supportsSamplerAnisotropy() {
+        try (MemoryStack stack = stackPush()) {
+            var features = VkPhysicalDeviceFeatures.calloc(stack);
+            vkGetPhysicalDeviceFeatures(physicalDevice, features);
+            return features.samplerAnisotropy();
+        }
+    }
+
     //TODO: add nice queue creation system
     public void createDevice(List<String> extensions, List<String> layers, float[] queuePriorities, Consumer<VkPhysicalDeviceFeatures> deviceFeatures, List<Function<MemoryStack, Struct>> applicators) {
-        var deviceExtensions = new HashSet<>(getDeviceExtensionStrings(physicalDevice));
+        var deviceExtensions = new HashSet<>(VulkanExtensions.device(physicalDevice));
         for (var extension : extensions) {
             if (!deviceExtensions.contains(extension)) {
                 throw new IllegalStateException("Physical device is missing extension: " + extension);
@@ -108,26 +111,6 @@ public class VInitializer {
         }
     }
 
-    private static VkLayerProperties.Buffer getInstanceLayers(MemoryStack stack) {
-        int[] res = new int[1];
-        _CHECK_(vkEnumerateInstanceLayerProperties(res, null));
-        VkLayerProperties.Buffer layerProperties = VkLayerProperties.calloc(res[0], stack);
-        _CHECK_(vkEnumerateInstanceLayerProperties(res, layerProperties));
-        if (res[0] != layerProperties.capacity())
-            throw new IllegalStateException();
-        return layerProperties;
-    }
-
-    private static VkExtensionProperties.Buffer getInstanceExtensions(MemoryStack stack) {
-        int[] res = new int[1];
-        _CHECK_(vkEnumerateInstanceExtensionProperties((String) null, res, null));
-        VkExtensionProperties.Buffer extensionProperties = VkExtensionProperties.calloc(res[0], stack);
-        _CHECK_(vkEnumerateInstanceExtensionProperties((String) null, res, extensionProperties));
-        if (res[0] != extensionProperties.capacity())
-            throw new IllegalStateException();
-        return extensionProperties;
-    }
-
     private PointerBuffer getPhysicalDevices(MemoryStack stack) {
         int[] res = new int[1];
         _CHECK_(vkEnumeratePhysicalDevices(instance, res, null));
@@ -136,31 +119,6 @@ public class VInitializer {
         if (res[0] != devices.capacity())
             throw new IllegalStateException();
         return devices;
-    }
-
-    private List<String> getDeviceExtensionStrings(VkPhysicalDevice device) {
-        List<String> extensions = new ArrayList<>();
-        try (var stack = stackPush()) {
-            var eb = getDeviceExtensions(stack, device);
-            for (var extension : eb) {
-                extensions.add(extension.extensionNameString());
-            }
-        }
-        return extensions;
-    }
-
-    private VkExtensionProperties.Buffer getDeviceExtensions(MemoryStack stack, long device) {
-        return getDeviceExtensions(stack, new VkPhysicalDevice(device, instance));
-    }
-
-    private VkExtensionProperties.Buffer getDeviceExtensions(MemoryStack stack, VkPhysicalDevice device) {
-        int[] res = new int[1];
-        _CHECK_(vkEnumerateDeviceExtensionProperties(device, (String) null, res, null));
-        VkExtensionProperties.Buffer extensionProperties = VkExtensionProperties.calloc(res[0], stack);
-        _CHECK_(vkEnumerateDeviceExtensionProperties(device, (String) null, res, extensionProperties));
-        if (res[0] != extensionProperties.capacity())
-            throw new IllegalStateException();
-        return extensionProperties;
     }
 
     public VContext createContext() {

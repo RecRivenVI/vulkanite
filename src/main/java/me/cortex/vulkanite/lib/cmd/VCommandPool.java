@@ -67,18 +67,18 @@ public class VCommandPool extends TrackedResourceObject {
         toRelease.add(cmdBuff);
     }
 
-    public void doReleases() {
+    public synchronized void doReleases() {
         while (!toRelease.isEmpty()) {
             toRelease.poll().freeInternal();
         }
     }
 
-    public void releaseNow(VCmdBuff cmd) {
+    public synchronized void releaseNow(VCmdBuff cmd) {
         cmd.freeInternal();
     }
 
     @Override
-    public void free() {
+    public synchronized void free() {
         free0();
         vkDestroyCommandPool(device, pool, null);
     }

@@ -53,7 +53,7 @@ public class ComputePipelineBuilder {
                 for (int i = 0; i < pushConstants.size(); i++) {
                     var pushConstant = pushConstants.get(i);
                     pushConstantRanges.get(i)
-                            .stageFlags(VK_SHADER_STAGE_ALL)
+                            .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT)
                             .offset(pushConstant.offset)
                             .size(pushConstant.size);
                 }
@@ -66,10 +66,15 @@ public class ComputePipelineBuilder {
             VkPipelineShaderStageCreateInfo shaderStage = VkPipelineShaderStageCreateInfo.calloc(stack);
             compute.setupStruct(stack, shaderStage);
             LongBuffer pPipeline = stack.mallocLong(1);
-            _CHECK_(vkCreateComputePipelines(context.device, 0, VkComputePipelineCreateInfo.calloc(1, stack)
+            var createInfo = VkComputePipelineCreateInfo.calloc(1, stack)
                     .sType$Default()
                     .layout(pLayout.get(0))
-                    .stage(shaderStage), null, pPipeline));
+                    .stage(shaderStage);
+            try (var cache = PipelineCompilationCache.open(context.device)) {
+                int status = vkCreateComputePipelines(context.device, cache.handle(), createInfo, null, pPipeline);
+                _CHECK_(status);
+                cache.save();
+            }
 
             return new VComputePipeline(context, pLayout.get(0), pPipeline.get(0));
         }

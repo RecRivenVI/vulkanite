@@ -1,6 +1,5 @@
 package me.cortex.vulkanite.lib.cmd;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 
 import io.netty.util.internal.shaded.org.jctools.queues.MessagePassingQueue.Consumer;
 import me.cortex.vulkanite.lib.other.sync.VFence;
@@ -18,18 +17,19 @@ import static org.lwjgl.vulkan.VK10.*;
 //Manages multiple command queues and fence synchronizations
 public class CommandManager {
     private final VkDevice device;
+    private final Thread renderThread;
     private final VkQueue[] queues;
 
     private final VCommandPool singleUsePool;
 
     public CommandManager(VkDevice device, int queues) {
         this.device = device;
+        this.renderThread = Thread.currentThread();
         this.queues = new VkQueue[queues];
         try (var stack = stackPush()) {
             var pQ = stack.pointers(0);
             for (int i = 0; i < queues; i++) {
                 vkGetDeviceQueue(device, 0, i, pQ);
-                System.out.println("Queue "+i+" has address " + Long.toHexString(pQ.get(0)));
                 this.queues[i] = new VkQueue(pQ.get(0), device);
             }
         }
@@ -44,21 +44,21 @@ public class CommandManager {
         return new VCommandPool(device, flags);
     }
 
-    public void submit(int queueId, VkSubmitInfo submit) {
+    public synchronized void submit(int queueId, VkSubmitInfo submit) {
         try (var stack = stackPush()) {
-            vkQueueSubmit(queues[queueId], submit, 0);
+            me.cortex.vulkanite.lib.other.VUtil._CHECK_(vkQueueSubmit(queues[queueId], submit, 0));
         }
     }
 
-    public void submitOnceAndWait(int queueId, VCmdBuff cmdBuff) {
+    public synchronized void submitOnceAndWait(int queueId, VCmdBuff cmdBuff) {
         try (var stack = stackPush()) {
             var submit = VkSubmitInfo.calloc(stack).sType$Default()
                     .pCommandBuffers(stack.pointers(cmdBuff))
                     .pWaitSemaphores(stack.longs())
                     .pWaitDstStageMask(stack.ints())
                     .pSignalSemaphores(stack.longs());
-            vkQueueSubmit(queues[queueId], submit, 0);
-            vkQueueWaitIdle(queues[queueId]);
+            me.cortex.vulkanite.lib.other.VUtil._CHECK_(vkQueueSubmit(queues[queueId], submit, 0));
+            me.cortex.vulkanite.lib.other.VUtil._CHECK_(vkQueueWaitIdle(queues[queueId]));
             cmdBuff.freeInternal();
         }
     }
@@ -72,9 +72,9 @@ public class CommandManager {
     }
 
     //TODO: if its a single use command buffer, automatically add the required fences and stuff to free the command buffer once its done
-    public void submit(int queueId, VCmdBuff[] cmdBuffs, VSemaphore[] waits, int[] waitStages, VSemaphore[] triggers, VFence fence) {
+    public synchronized void submit(int queueId, VCmdBuff[] cmdBuffs, VSemaphore[] waits, int[] waitStages, VSemaphore[] triggers, VFence fence) {
         if (queueId == 0) {
-            RenderSystem.assertOnRenderThread();
+            if (Thread.currentThread() != renderThread) throw new IllegalStateException("Queue 0 submit must run on the render thread");
         }
 
         try (var stack = stackPush()) {
@@ -90,11 +90,11 @@ public class CommandManager {
                     .waitSemaphoreCount(waits.length)
                     .pWaitDstStageMask(stack.ints(waitStages))
                     .pSignalSemaphores(signalSemaphores);
-            vkQueueSubmit(queues[queueId], submit, fence==null?0:fence.address());
+            me.cortex.vulkanite.lib.other.VUtil._CHECK_(vkQueueSubmit(queues[queueId], submit, fence==null?0:fence.address()));
         }
     }
 
-    public void waitQueueIdle(int queue) {
-        vkQueueWaitIdle(queues[queue]);
+    public synchronized void waitQueueIdle(int queue) {
+        me.cortex.vulkanite.lib.other.VUtil._CHECK_(vkQueueWaitIdle(queues[queue]));
     }
 }
