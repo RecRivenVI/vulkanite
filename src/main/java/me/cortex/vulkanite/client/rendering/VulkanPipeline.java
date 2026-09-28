@@ -305,7 +305,25 @@ public class VulkanPipeline {
     private boolean destroyed;
     private Throwable cleanupFailure;
     /** Executes at the pack-declared boundary after one complete Iris composite pass. */
+    private static long vulkanite$lastRtFrameNanos;
+
     public void renderAtCompositeBoundary(List<VGImage> outImgs, FrameSnapshot frameInputs,
+                                  List<SharedShaderBuffer> ssbos,
+                                  me.cortex.vulkanite.compat.EntityFrame producedScene) {
+        long now = System.nanoTime();
+        if (vulkanite$lastRtFrameNanos != 0) {
+            me.cortex.vulkanite.audit.Diagnostics.recordFrame(now - vulkanite$lastRtFrameNanos);
+        }
+        vulkanite$lastRtFrameNanos = now;
+        long pipelineStart = System.nanoTime();
+        try {
+            renderAtCompositeBoundary0(outImgs, frameInputs, ssbos, producedScene);
+        } finally {
+            me.cortex.vulkanite.audit.Diagnostics.addCpu("pipeline", System.nanoTime() - pipelineStart);
+        }
+    }
+
+    private void renderAtCompositeBoundary0(List<VGImage> outImgs, FrameSnapshot frameInputs,
                                   List<SharedShaderBuffer> ssbos,
                                   me.cortex.vulkanite.compat.EntityFrame producedScene) {
         Vulkanite.getInstance().assertRtAvailable();
@@ -443,6 +461,8 @@ public class VulkanPipeline {
             var cmd = singleUsePool.createCommandBuffer();
             cleanup.command = cmd;
             cmd.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+            me.cortex.vulkanite.lib.other.GpuTimestamps.ensure(ctx.device);
+            me.cortex.vulkanite.lib.other.GpuTimestamps.beginFrame(cmd.buffer);
 
             {
                 // Put barriers on images & transition to the optimal layout
@@ -468,6 +488,7 @@ public class VulkanPipeline {
 
 
             boolean previousRayPass = false;
+            me.cortex.vulkanite.lib.other.GpuTimestamps.write(cmd.buffer, me.cortex.vulkanite.lib.other.GpuTimestamps.SLOT_RAY, false);
             for (var record : raytracePipelines) {
                 if (previousRayPass) cmd.encodeRayStorageBarrier();
                 var pipeline = record.pipeline;
@@ -566,6 +587,7 @@ public class VulkanPipeline {
                 var output = outImgs.get(execution.colorWrite());
                 pipeline.trace(cmd, output.width, output.height, 1);
                 previousRayPass = true;
+                me.cortex.vulkanite.lib.other.GpuTimestamps.write(cmd.buffer, me.cortex.vulkanite.lib.other.GpuTimestamps.SLOT_RAY, true);
 
                 // Barrier on the output images
                 for (var img : colorImages) {
@@ -606,6 +628,7 @@ public class VulkanPipeline {
                     cmd::enqueueFree,
                     uniformLease::complete,
                     () -> { if (previousOutputCapture != null) previousOutputCapture.complete(); },
+                    me.cortex.vulkanite.lib.other.GpuTimestamps::completeFrame,
                     fence::free));
             cleanup.callbackInstalled = true;
             previousOutputSemaphore = outputSemaphoreLease;

@@ -461,6 +461,7 @@ public final class PublicIndexedDrawCapture {
             if (building.failure != null)
                 throw new IllegalStateException("Public indexed draw capture failed after normal GL submission", building.failure);
             if (building.draws.isEmpty()) return List.of();
+            long t0 = System.nanoTime();
             long sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
             if (sync == 0) throw new IllegalStateException("Could not fence public indexed draw copies");
             try {
@@ -471,14 +472,22 @@ public final class PublicIndexedDrawCapture {
                         throw new IllegalStateException("Public indexed draw copy fence failed or timed out: " + status);
                 }
             } finally { glDeleteSync(sync); }
+            long t1 = System.nanoTime();
+            me.cortex.vulkanite.audit.Diagnostics.addCpu("indexedFence", t1 - t0);
             var bytes = new IdentityHashMap<Snapshot, byte[]>();
-            for (Snapshot snapshot : building.snapshots) bytes.put(snapshot, snapshot.read());
+            long readBytes = 0;
+            for (Snapshot snapshot : building.snapshots) {
+                bytes.put(snapshot, snapshot.read());
+                readBytes += snapshot.size;
+            }
             var completed = new ArrayList<Draw>(building.draws.size());
             for (Pending draw : building.draws) completed.add(new Draw(
                     bytes.get(draw.vertices), bytes.get(draw.indices), bytes.get(draw.transform),
                     draw.layout, draw.indexBytes, draw.indexCount, draw.baseVertex, draw.constants,
                     draw.textures, draw.twoSided, draw.alphaBlend, draw.pass, draw.passView, draw.cameraOrigin,
                     draw.sourceVertexHandle, draw.sourceIndexHandle, draw.firstIndex));
+            me.cortex.vulkanite.audit.Diagnostics.addCpu("indexedReadback", System.nanoTime() - t1);
+            me.cortex.vulkanite.audit.Diagnostics.addIndexed(completed.size(), readBytes);
             return List.copyOf(completed);
         } finally { building.close(); }
     }

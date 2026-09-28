@@ -20,6 +20,22 @@ loom {
         client {
             runDir 'run-26.3'
         }
+        automation {
+            client()
+            name = 'automation'
+            runDir 'run/automation/empty-section/minecraft'
+            def env = System.getenv()
+            if (env['VULKANITE_AUDIT_ENABLE'] == 'true') {
+                vmArg '-Dvulkanite.audit.enable=true'
+                vmArg "-Dvulkanite.audit.token=${env['VULKANITE_AUDIT_TOKEN'] ?: ''}"
+                vmArg "-Dvulkanite.audit.port=${env['VULKANITE_AUDIT_PORT'] ?: '53117'}"
+            }
+            def world = env['VULKANITE_AUTO_WORLD']
+            if (world != null && !world.isBlank()) {
+                programArg '--quickPlaySingleplayer'
+                programArg world
+            }
+        }
     }
 }
 

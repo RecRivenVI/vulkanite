@@ -70,7 +70,12 @@ vec3 offsetOrigin(Surface surface,vec3 direction) {
 vec3 directionalLight(Surface surface,vec3 direction,vec3 irradiance) {
     float nDotL=max(dot(surface.normal,direction),0.0);
     if(nDotL<=0.0||max(max(irradiance.r,irradiance.g),irradiance.b)<=0.0) return vec3(0.0);
-    traceDetailed(offsetOrigin(surface,direction),direction,0u,0.0,0.0);
+    // Shadow rays only need any hit (including cutout coverage). Skip closest-hit
+    // and stop at the first accepted intersection — same occlusion, less work.
+    hit.distance=-1.0;
+    hit.visibilityFlags=0u;
+    traceRayEXT(scene,gl_RayFlagsTerminateOnFirstHitEXT|gl_RayFlagsSkipClosestHitShaderEXT,
+            255,0,0,0,offsetOrigin(surface,direction),0.001,direction,65536.0,0);
     if(hit.distance>=0.0) return vec3(0.0);
     return surface.color.rgb*irradiance*(nDotL/PI);
 }

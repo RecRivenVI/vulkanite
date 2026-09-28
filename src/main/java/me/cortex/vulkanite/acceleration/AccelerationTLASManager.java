@@ -45,6 +45,20 @@ public class AccelerationTLASManager {
     private VBuffer tlasScratch;
     private long tlasScratchSize;
     private Pair<VAccelerationStructure, VBuffer> currentEntityBuild;
+    private int lastEntityContentHash;
+    private int lastEntityContentBytes = -1;
+
+    private static int vulkanite$entityContentHash(me.cortex.vulkanite.compat.EntityFrame frame) {
+        var buf = frame.vertices().duplicate();
+        int h = 1;
+        while (buf.remaining() >= 4) {
+            h = 31 * h + buf.getInt();
+        }
+        while (buf.hasRemaining()) {
+            h = 31 * h + (buf.get() & 0xff);
+        }
+        return h;
+    }
 
 
     // Called only after the queue has completed every dispatch that can reference it.
@@ -91,6 +105,15 @@ public class AccelerationTLASManager {
     // TODO: cleanup, this is very messy
     // FIXME: in the case of no geometry create an empty tlas or something???
     public void buildTLAS(VSemaphore semIn, VSemaphore semOut, VSemaphore[] blocking) {
+        long tlasCpuStart = System.nanoTime();
+        try {
+            buildTLAS0(semIn, semOut, blocking);
+        } finally {
+            me.cortex.vulkanite.audit.Diagnostics.addCpu("tlasCpu", System.nanoTime() - tlasCpuStart);
+        }
+    }
+
+    private void buildTLAS0(VSemaphore semIn, VSemaphore semOut, VSemaphore[] blocking) {
         if (Thread.currentThread() != renderThread) throw new IllegalStateException("TLAS build must run on the render thread");
 
         singleUsePool.doReleases();
@@ -111,14 +134,30 @@ public class AccelerationTLASManager {
 
             var cmd = singleUsePool.createCommandBuffer();
             cmd.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+            me.cortex.vulkanite.lib.other.GpuTimestamps.ensure(context.device);
+            // Note: TLAS cmd is a different buffer from the RT frame; use a separate slot write
+            // only if this command is the same frame submission. We record on this cmd when possible.
             VFence fence = context.sync.createFence();
 
             Pair<VAccelerationStructure, VBuffer> oldEntityBuild = currentEntityBuild;
             Pair<VAccelerationStructure, VBuffer> entityBuild;
             if (entityData != null) {
-                entityBuild = entityBlasBuilder.buildBlas(entityData, cmd, fence);
+                int contentHash = vulkanite$entityContentHash(entityData);
+                if (currentEntityBuild != null && contentHash == lastEntityContentHash
+                        && entityData.vertices().remaining() == lastEntityContentBytes) {
+                    // Byte-identical dynamic geometry: keep the existing BLAS.
+                    entityBuild = currentEntityBuild;
+                    oldEntityBuild = null;
+                    me.cortex.vulkanite.audit.Diagnostics.onBlasReused();
+                } else {
+                    entityBuild = entityBlasBuilder.buildBlas(entityData, cmd, fence);
+                    lastEntityContentHash = contentHash;
+                    lastEntityContentBytes = entityData.vertices().remaining();
+                }
             } else {
                 entityBuild = null;
+                lastEntityContentHash = 0;
+                lastEntityContentBytes = -1;
             }
             currentEntityBuild = entityBuild;
             entityData = null;
@@ -650,6 +689,11 @@ public class AccelerationTLASManager {
 
     public long getGeometrySet() {
         return buildDataManager.geometryBufferDescSet;
+    }
+
+    /** Read-only instance count for diagnostics. */
+    public int sectionCount() {
+        return buildDataManager.sectionCount();
     }
 
     public VDescriptorSetLayout getGeometryLayout() {

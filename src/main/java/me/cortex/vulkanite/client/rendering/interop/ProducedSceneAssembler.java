@@ -42,6 +42,16 @@ public final class ProducedSceneAssembler implements AutoCloseable {
      */
     public EntityFrame assemble(ProducedDraws.Frame produced,
                                 List<PublicIndexedDrawCapture.Draw> indexed, FrameSnapshot snapshot) {
+        long assembleStart = System.nanoTime();
+        try {
+            return assemble0(produced, indexed, snapshot);
+        } finally {
+            me.cortex.vulkanite.audit.Diagnostics.addCpu("assemble", System.nanoTime() - assembleStart);
+        }
+    }
+
+    private EntityFrame assemble0(ProducedDraws.Frame produced,
+                                  List<PublicIndexedDrawCapture.Draw> indexed, FrameSnapshot snapshot) {
         if (produced.failure() != null)
             throw new IllegalStateException("Normal producer copy failed after Iris upload", produced.failure());
         if (snapshot == null) throw new IllegalArgumentException("Missing scene frame");
@@ -145,6 +155,7 @@ public final class ProducedSceneAssembler implements AutoCloseable {
         if (vertices.position()==0) return null;
         var output=vertices.duplicate().order(ByteOrder.nativeOrder());
         output.flip();
+        me.cortex.vulkanite.audit.Diagnostics.addAssembled(output.remaining() / EntityFrame.STRIDE);
         return EntityFrame.borrowed(output.slice().order(ByteOrder.nativeOrder()),List.copyOf(textures));
     }
 
@@ -453,14 +464,20 @@ public final class ProducedSceneAssembler implements AutoCloseable {
                         else {shadowTangent.transform(tangent);orientation=Math.signum(shadowTangent.determinant());}
                         if(normal.lengthSquared()>1.0e-6f)
                             tangent.fma(-tangent.dot(normal),normal);
-                        if(!tangent.isFinite() || tangent.lengthSquared()<1.0e-10f)
-                            throw new IllegalStateException("Normal producer tangent collapsed in world space");
-                        tangent.normalize();
-                        int w=(byte)(packedTangent>>>24);
-                        if(orientation<0) w=-w;
-                        written.putInt(base+64,packNormal(tangent.x)
-                                |(packNormal(tangent.y)<<8)|(packNormal(tangent.z)<<16)
-                                |((w&255)<<24));
+                        if(!tangent.isFinite() || tangent.lengthSquared()<1.0e-10f) {
+                            // Degenerate producer tangent after world transform: keep the
+                            // vertex and drop the optional field instead of failing the frame.
+                            me.cortex.vulkanite.audit.Diagnostics.onTangentFallback();
+                            written.putInt(base+64,0);
+                            written.putInt(base+96,presence&~EntityFrame.TANGENT_PRESENT);
+                        } else {
+                            tangent.normalize();
+                            int w=(byte)(packedTangent>>>24);
+                            if(orientation<0) w=-w;
+                            written.putInt(base+64,packNormal(tangent.x)
+                                    |(packNormal(tangent.y)<<8)|(packNormal(tangent.z)<<16)
+                                    |((w&255)<<24));
+                        }
                     }
                 }
             }

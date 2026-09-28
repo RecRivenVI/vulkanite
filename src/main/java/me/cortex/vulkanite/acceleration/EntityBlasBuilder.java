@@ -25,6 +25,21 @@ public class EntityBlasBuilder {
     }
 
     private record BuildInfo(int triangleCount, long address) {}
+    private boolean needsAnyHit;
+
+    private static boolean entityFrameNeedsAnyHit(java.nio.ByteBuffer vertices) {
+        var buf = vertices.duplicate();
+        int stride = me.cortex.vulkanite.compat.EntityFrame.STRIDE;
+        int limit = buf.limit();
+        for (int off = buf.position(); off + 48 <= limit; off += stride) {
+            int flags = buf.getInt(off + 32);
+            if ((flags & (me.cortex.vulkanite.compat.EntityFrame.ALPHA_CUTOUT
+                    | me.cortex.vulkanite.compat.EntityFrame.ALPHA_BLEND)) != 0) {
+                return true;
+            }
+        }
+        return false;
+    }
     Pair<VAccelerationStructure, VBuffer> buildBlas(me.cortex.vulkanite.compat.EntityFrame frame, VCmdBuff cmd, VFence fence) {
         var geometryBuffer = ctx.memory.createBuffer(frame.vertices().remaining(), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 0, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
         long ptr = geometryBuffer.map();
@@ -32,6 +47,7 @@ public class EntityBlasBuilder {
         geometryBuffer.unmap();
         geometryBuffer.flush();
         try (var stack = MemoryStack.stackPush()) {
+            needsAnyHit = entityFrameNeedsAnyHit(frame.vertices());
             int[] counts = new int[1];
             var geometries = populateBuildStructs(stack, List.of(new BuildInfo(frame.triangleCount(), geometryBuffer.deviceAddress())), counts);
             return Pair.of(executeBlasBuild(ctx, cmd, fence, stack, geometries, counts), geometryBuffer);
@@ -61,7 +77,8 @@ public class EntityBlasBuilder {
                                     .indexData(indexData)
                                     .indexType(VK_INDEX_TYPE_NONE_KHR)))
                     .geometryType(VK_GEOMETRY_TYPE_TRIANGLES_KHR)
-                    .flags(VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR)
+                    .flags(VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR
+                            | (needsAnyHit ? 0 : VK_GEOMETRY_OPAQUE_BIT_KHR))
             //        .flags(geometry.geometryFlags)
             ;
             primitiveCounts[i++] = geometry.triangleCount;

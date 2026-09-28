@@ -17,10 +17,15 @@ import static org.lwjgl.vulkan.KHRAccelerationStructure.VK_GEOMETRY_OPAQUE_BIT_K
 public final class SodiumSectionInput {
     private SodiumSectionInput() {}
 
+    /**
+     * @return a same-frame owned copy, including a confirmed empty update that clears
+     *         previously uploaded geometry; {@code null} means not captured (cancelled
+     *         meshing, pack-state skip) and must not be treated as an empty clear.
+     */
     public static SectionMeshUpdate copy(ChunkBuildOutput build) {
         var metadata = (IAccelerationBuildResult) build;
         var geometry = metadata.getAccelerationGeometryData();
-        if (geometry == null) return null; // The build was not captured for this pack generation.
+        if (geometry == null) return null;
 
         List<ByteBuffer> owned = new ArrayList<>(geometry.size());
         List<TerrainRenderPass> passes = new ArrayList<>(geometry.size());

@@ -16,5 +16,6 @@ void main() {
         if(alphaBlendSurface()) {
             if(!covered(alpha,hit.coverageSeed,uint(gl_PrimitiveID),uint(gl_InstanceID))) ignoreIntersectionEXT;
         } else if(alphaDiscardSurface()&&alpha<0.5) ignoreIntersectionEXT;
+        else hit.distance=gl_HitTEXT;
     }
 }

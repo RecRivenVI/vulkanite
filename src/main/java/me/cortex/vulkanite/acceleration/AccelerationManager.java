@@ -40,9 +40,16 @@ public class AccelerationManager {
             }
             latestBuilds.put(section, new BuildRevision(result.revision(), result.generation()));
             if (result.isEmpty()) {
-                tlasManager.removeSection(section);
-            } else accepted.add(result);
+                me.cortex.vulkanite.audit.Diagnostics.onEmptyMeshUpdate(result.revision());
+                boolean removed = tlasManager.removeSection(section);
+                me.cortex.vulkanite.audit.Diagnostics.onRemoveSection(removed);
+            } else {
+                me.cortex.vulkanite.audit.Diagnostics.onNonEmptyMeshUpdate(result.revision());
+                accepted.add(result);
+            }
         }
+        me.cortex.vulkanite.audit.Diagnostics.onBlasEnqueued(accepted.size());
+        publishDiagnostics();
         try { blasBuilder.enqueue(accepted); }
         catch (Throwable failure) {
             // The replacement was not published. Do not leave a previous BLAS
@@ -82,13 +89,16 @@ public class AccelerationManager {
                             && !data.section().isDisposed()) {
                         results.add(result);
                     } else {
+                        me.cortex.vulkanite.audit.Diagnostics.onBlasRejected(1);
                         tlasManager.reject(result);
                     }
                 }
                 syncs.add(batch.semaphore());
             }
+            me.cortex.vulkanite.audit.Diagnostics.onBlasPublished(results.size());
             tlasManager.updateSections(results);
         }
+        publishDiagnostics();
     }
 
     public VAccelerationStructure buildTLAS(VSemaphore inLink, VSemaphore outLink) {
@@ -98,11 +108,17 @@ public class AccelerationManager {
         return tlasManager.getTlas();
     }
 
+    private void publishDiagnostics() {
+        me.cortex.vulkanite.audit.Diagnostics.setSectionCounts(
+                currentSections.size(), tlasManager.sectionCount());
+    }
+
     public void sectionRemove(SectionHandle section) {
         section.dispose();
         latestBuilds.remove(section);
         currentSections.remove(section.origin(), section);
-        tlasManager.removeSection(section);
+        boolean removed = tlasManager.removeSection(section);
+        me.cortex.vulkanite.audit.Diagnostics.onRemoveSection(removed);
     }
 
     //Cleans up any loose things such as semaphores waiting to be synced etc

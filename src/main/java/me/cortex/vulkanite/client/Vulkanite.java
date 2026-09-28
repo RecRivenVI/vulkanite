@@ -101,6 +101,7 @@ public class Vulkanite {
     public void renderTick() {
         ctx.sync.checkFences();
         var state = me.cortex.vulkanite.compat.ActivePack.state();
+        me.cortex.vulkanite.audit.Diagnostics.setGeneration(state.generation());
         ensureTerrainGeneration(state.generation());
         accelerationManager.updateTick(state.generation(), state.capabilities().sceneGeometry());
     }

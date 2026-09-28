@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "vulkanite-audit",
+  "version": "0.1.0",
+  "name": "Vulkanite Audit Harness",
+  "description": "Dev-only IPC and world control for Vulkanite automation. Inert unless -Dvulkanite.audit.enable=1.",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "me.cortex.vulkanite.audit.AuditEntrypoint"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": ">=1.21",
+    "java": ">=21"
+  }
+}
