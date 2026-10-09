@@ -1,24 +1,32 @@
-name: Check Build
+name: Check
+
 on:
-  pull_request:
-    branches: ['*']
   push:
-    branches: ['*']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    name: Build
+  check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: gradle/wrapper-validation-action@v1
-      - uses: actions/setup-java@v3
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
-          distribution: 'zulu'
-          java-version: '17'
-      - uses: actions/cache@v3
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Check
+        run: ./gradlew check verifyRelease --continue
+      - name: Upload compliance report
+        if: always()
+        uses: actions/upload-artifact@v7
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-      - run: ./gradlew build --stacktrace --no-daemon
+          name: compliance-report
+          path: build/reports/compliance/
+          if-no-files-found: ignore

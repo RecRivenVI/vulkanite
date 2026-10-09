@@ -1,0 +1,45 @@
+{
+  "run_id": "empty-section-20261009-122353",
+  "scenario": "empty-section",
+  "mode": "functional",
+  "git_head": "ef79286e6f80adc60c67fe2f3caa400096345bb1",
+  "git_dirty": true,
+  "diff_hash": "293063182073987502C94CCC04E523B025B7D81A602F23D5BEAA3B16FF032A70",
+  "automation_jar_sha256": "FD7BE9419F8A7BD049D8BB4E08D647962977C936AD53F63760E81F25C1DBABD9",
+  "shader_pack_sha256": "541E2849152E70E9E426AFD27334F38FA4E228B7624C92692F1A12DB84BD8F75",
+  "run_directory": "D:\\Workspaces\\Repositories\\GitHub\\RecRivenVI\\vulkanite\\validations\\integration-empty_section\\result\\empty-section-20261009-122353",
+  "game_directory": "D:\\Workspaces\\Repositories\\GitHub\\RecRivenVI\\vulkanite\\validations\\integration-empty_section\\instance\\26.3-fabric\\client",
+  "world": "auto-empty-section",
+  "desktop": "WinSta0\\VulkaniteAuto-empty-section-20261009-122353",
+  "audit": {
+    "endpoint": "127.0.0.1:53217",
+    "port": 53217,
+    "token_id": "per-run"
+  },
+  "target_block": {
+    "y": 70,
+    "z": 8,
+    "x": 8
+  },
+  "started": "2026-10-09T12:23:54.1531333+08:00",
+  "pass_criteria": [
+    "non-empty baseline accepted",
+    "confirmed empty update accepted after STONE->AIR",
+    "no stale BLAS republish (blasRejected may rise; published must not restore old without place)",
+    "AIR->STONE yields new non-empty revision",
+    "rapid toggle ends consistent with last block state",
+    "same origin at most one current holder (currentSections<=expected)"
+  ],
+  "preflight_status": "OK",
+  "desktop_launch": {
+    "Desktop": "WinSta0\\VulkaniteAuto-empty-section-20261009-122353",
+    "ProcessId": 53028,
+    "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /c D:\\Workspaces\\Repositories\\GitHub\\RecRivenVI\\vulkanite\\gradlew.bat :version:26.3-fabric:runValidationIntegrationEmptySectionClient --console=plain --no-daemon"
+  },
+  "gradle_pid": 53028,
+  "audit_token_fingerprint": "tk-fd3e3",
+  "audit_port": 53217,
+  "audit_up": false,
+  "status": "BLOCKED",
+  "reason": "audit handshake failed / game not ready"
+}

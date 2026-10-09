@@ -1,0 +1,30 @@
+{
+  "reason": null,
+  "status": "PASS",
+  "steps": [
+    {
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":40,\"nonEmptyMeshUpdates\":506,\"emptyShortcutAccepts\":0,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":736,\"removeSectionRemoved\":0,\"removeSectionNoHolder\":736,\"tangentFallbacks\":0,\"activeGeneration\":1,\"currentSections\":546,\"tlasInstances\":506,\"lastEmptyRevision\":5,\"lastNonEmptyRevision\":56,\"blasEnqueued\":506,\"blasPublished\":506,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":64416400,\"cpuPipelineNanos\":189509600,\"cpuTlasNanos\":82654200,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":76608,\"frameCount\":157,\"lastFrameNanos\":8011400}}",
+      "pass": true,
+      "name": "audit_snapshot"
+    },
+    {
+      "status": "PASS",
+      "detail": "frames=157",
+      "pass": true,
+      "name": "rt_frames"
+    },
+    {
+      "status": "PASS",
+      "detail": "vertices=76608",
+      "pass": true,
+      "name": "dynamic_geometry"
+    },
+    {
+      "status": "PASS",
+      "detail": "instances=506",
+      "pass": true,
+      "name": "tlas_present"
+    }
+  ]
+}

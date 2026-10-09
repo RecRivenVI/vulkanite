@@ -1,0 +1,51 @@
+{
+  "reason": "holders_unique :: sections=553 tlas=505",
+  "status": "FAIL",
+  "steps": [
+    {
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":47,\"nonEmptyMeshUpdates\":58,\"emptyShortcutAccepts\":0,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":551,\"removeSectionRemoved\":0,\"removeSectionNoHolder\":551,\"tangentFallbacks\":0,\"activeGeneration\":1,\"currentSections\":105,\"tlasInstances\":58,\"lastEmptyRevision\":5,\"lastNonEmptyRevision\":19,\"blasEnqueued\":58,\"blasPublished\":58,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":17039400,\"cpuPipelineNanos\":68794500,\"cpuTlasNanos\":27980900,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":2952,\"frameCount\":11,\"lastFrameNanos\":29841600}}",
+      "pass": true,
+      "name": "baseline_nonempty"
+    },
+    {
+      "detail": "gen=1",
+      "pass": true,
+      "name": "generation_recorded"
+    },
+    {
+      "detail": "enq=58",
+      "pass": true,
+      "name": "blas_enqueued"
+    },
+    {
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":48,\"nonEmptyMeshUpdates\":507,\"emptyShortcutAccepts\":1,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":552,\"removeSectionRemoved\":1,\"removeSectionNoHolder\":551,\"tangentFallbacks\":0,\"activeGeneration\":1,\"currentSections\":553,\"tlasInstances\":505,\"lastEmptyRevision\":30,\"lastNonEmptyRevision\":82,\"blasEnqueued\":507,\"blasPublished\":507,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":49056100,\"cpuPipelineNanos\":122806700,\"cpuTlasNanos\":46209500,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":25128,\"frameCount\":55,\"lastFrameNanos\":9303800}}",
+      "pass": true,
+      "name": "empty_update_accepted"
+    },
+    {
+      "detail": "sections=553 tlas=505",
+      "pass": false,
+      "name": "holders_unique"
+    },
+    {
+      "detail": "nonEmpty 507 -> 507",
+      "pass": true,
+      "name": "no_stale_republish"
+    },
+    {
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":122,\"nonEmptyMeshUpdates\":509,\"emptyShortcutAccepts\":75,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":626,\"removeSectionRemoved\":1,\"removeSectionNoHolder\":625,\"tangentFallbacks\":0,\"activeGeneration\":1,\"currentSections\":627,\"tlasInstances\":506,\"lastEmptyRevision\":606,\"lastNonEmptyRevision\":606,\"blasEnqueued\":509,\"blasPublished\":509,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":91167200,\"cpuPipelineNanos\":305688300,\"cpuTlasNanos\":126087600,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":177336,\"frameCount\":357,\"lastFrameNanos\":8016000}}",
+      "pass": true,
+      "name": "replace_nonempty"
+    },
+    {
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":497,\"nonEmptyMeshUpdates\":524,\"emptyShortcutAccepts\":450,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":1001,\"removeSectionRemoved\":6,\"removeSectionNoHolder\":995,\"tangentFallbacks\":0,\"activeGeneration\":1,\"currentSections\":627,\"tlasInstances\":506,\"lastEmptyRevision\":1402,\"lastNonEmptyRevision\":1402,\"blasEnqueued\":524,\"blasPublished\":524,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":150611600,\"cpuPipelineNanos\":570128800,\"cpuTlasNanos\":236767500,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":487800,\"frameCount\":973,\"lastFrameNanos\":8037700}}",
+      "pass": true,
+      "name": "rapid_toggle_no_crash"
+    },
+    {
+      "detail": "nonEmpty 509 -> 524",
+      "pass": true,
+      "name": "final_consistent"
+    }
+  ]
+}

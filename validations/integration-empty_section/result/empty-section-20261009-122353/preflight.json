@@ -1,0 +1,50 @@
+{
+  "mode": "functional",
+  "timestamp": "2026-10-09T12:23:56.8659522+08:00",
+  "cpu_percent": 17.12207660520303,
+  "ram_free_percent": 67.55,
+  "commit_free": 85632577536,
+  "commit_limit": null,
+  "gpu": {
+    "available": true,
+    "raw": [
+      "NVIDIA GeForce RTX 4080 SUPER, 617.14, 11 %, 5345 MiB, 16376 MiB, 40, 48.11 W"
+    ],
+    "source": "nvidia-smi"
+  },
+  "other_java": [
+    {
+      "Id": 14956,
+      "ProcessName": "java",
+      "StartTime": "2026-10-09T09:29:09.0009327+08:00",
+      "Path": "C:\\Program Files\\BellSoft\\LibericaJDK-25-Full\\bin\\java.exe"
+    },
+    {
+      "Id": 48120,
+      "ProcessName": "java",
+      "StartTime": "2026-10-09T11:19:41.0975567+08:00",
+      "Path": "C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.20.8-hotspot\\bin\\java.exe"
+    },
+    {
+      "Id": 48816,
+      "ProcessName": "java",
+      "StartTime": "2026-10-09T09:28:33.4866395+08:00",
+      "Path": "C:\\Program Files\\BellSoft\\LibericaJDK-25-Full\\bin\\java.exe"
+    },
+    {
+      "Id": 49456,
+      "ProcessName": "java",
+      "StartTime": "2026-10-09T11:19:43.3925778+08:00",
+      "Path": "C:\\Users\\RavenYin\\.gradle\\jdks\\eclipse_adoptium-21-amd64-windows.2\\bin\\java.exe"
+    },
+    {
+      "Id": 61868,
+      "ProcessName": "java",
+      "StartTime": "2026-10-09T11:58:51.7171364+08:00",
+      "Path": "C:\\Program Files\\BellSoft\\LibericaJDK-21-Full\\bin\\java.exe"
+    }
+  ],
+  "blocked": false,
+  "reasons": [],
+  "status": "OK"
+}

@@ -1,0 +1,6 @@
+{
+  "pid": 53028,
+  "desktop": "WinSta0\\VulkaniteAuto-empty-section-20261009-122353",
+  "command": "C:\\WINDOWS\\system32\\cmd.exe /d /c gradlew.bat :version:26.3-fabric:runValidationIntegrationEmptySectionClient",
+  "created": "2026-10-09T12:23:57.6504760+08:00"
+}

@@ -1,0 +1,107 @@
+{
+  "run_id": "visibility-rt-smoke-20261009-final2",
+  "scenario": "visibility-rt-smoke",
+  "mode": "functional",
+  "git_head": "ef79286e6f80adc60c67fe2f3caa400096345bb1",
+  "git_dirty": true,
+  "diff_hash": "293063182073987502C94CCC04E523B025B7D81A602F23D5BEAA3B16FF032A70",
+  "automation_jar_sha256": "F25835FC29F65E310C09E5A883F996C34F345569CBF70398AF1F8D2CF0EF1F5D",
+  "shader_pack_sha256": "DA706B78727D596994B654B46A58542D25D526A6172816F53C4011E1D9E86D22",
+  "run_directory": "D:\\Workspaces\\Repositories\\GitHub\\RecRivenVI\\vulkanite\\validations\\integration-empty_section\\result\\visibility-rt-smoke-20261009-final2",
+  "game_directory": "D:\\Workspaces\\Repositories\\GitHub\\RecRivenVI\\vulkanite\\validations\\integration-empty_section\\instance\\26.3-fabric\\client",
+  "world": "auto-empty-section",
+  "audit": {
+    "port": 53217,
+    "token_id": "per-run",
+    "endpoint": "127.0.0.1:53217"
+  },
+  "target_block": {
+    "y": 70,
+    "z": 8,
+    "x": 8
+  },
+  "started": "2026-10-09T13:20:52.6824177+08:00",
+  "pass_criteria": [
+    "audit snapshot",
+    "at least 30 RT frames",
+    "dynamic geometry assembled",
+    "TLAS populated"
+  ],
+  "coverage_gaps": [
+    "No camera/body or skin pixel readback; visual behavior remains user acceptance."
+  ],
+  "preflight_status": "OK",
+  "gradle_pid": 29672,
+  "audit_token_fingerprint": "tk-b46f9",
+  "audit_port": 53217,
+  "audit_up": true,
+  "result_steps": [
+    {
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":40,\"nonEmptyMeshUpdates\":506,\"emptyShortcutAccepts\":0,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":736,\"removeSectionRemoved\":0,\"removeSectionNoHolder\":736,\"tangentFallbacks\":0,\"activeGeneration\":1,\"currentSections\":546,\"tlasInstances\":506,\"lastEmptyRevision\":5,\"lastNonEmptyRevision\":56,\"blasEnqueued\":506,\"blasPublished\":506,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":64416400,\"cpuPipelineNanos\":189509600,\"cpuTlasNanos\":82654200,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":76608,\"frameCount\":157,\"lastFrameNanos\":8011400}}",
+      "pass": true,
+      "name": "audit_snapshot"
+    },
+    {
+      "status": "PASS",
+      "detail": "frames=157",
+      "pass": true,
+      "name": "rt_frames"
+    },
+    {
+      "status": "PASS",
+      "detail": "vertices=76608",
+      "pass": true,
+      "name": "dynamic_geometry"
+    },
+    {
+      "status": "PASS",
+      "detail": "instances=506",
+      "pass": true,
+      "name": "tlas_present"
+    }
+  ],
+  "final_snapshot": {
+    "ok": true,
+    "cmd": "snapshot",
+    "data": {
+      "emptyMeshUpdates": 40,
+      "nonEmptyMeshUpdates": 506,
+      "emptyShortcutAccepts": 0,
+      "emptyShortcutSkipped": 0,
+      "removeSectionCalls": 736,
+      "removeSectionRemoved": 0,
+      "removeSectionNoHolder": 736,
+      "tangentFallbacks": 0,
+      "activeGeneration": 1,
+      "currentSections": 546,
+      "tlasInstances": 506,
+      "lastEmptyRevision": 5,
+      "lastNonEmptyRevision": 56,
+      "blasEnqueued": 506,
+      "blasPublished": 506,
+      "blasRejected": 0,
+      "cpuIndexedFenceNanos": 0,
+      "cpuIndexedReadbackNanos": 0,
+      "cpuAssembleNanos": 64416400,
+      "cpuPipelineNanos": 189509600,
+      "cpuTlasNanos": 82654200,
+      "gpuRayTicks": 0,
+      "gpuTlasTicks": 0,
+      "gpuDynBlasTicks": 0,
+      "gpuTerrainBlasTicks": 0,
+      "indexedDraws": 0,
+      "indexedBytes": 0,
+      "assembledVertices": 76608,
+      "frameCount": 157,
+      "lastFrameNanos": 8011400
+    }
+  },
+  "status": "PASS",
+  "launcher_exit_confirmed": true,
+  "remaining_validation_game_pids": [],
+  "remaining_owned_pids": [],
+  "launcher_exit_code": 0,
+  "cleanup_errors": [],
+  "completed": "2026-10-09T13:21:29.7535880+08:00"
+}

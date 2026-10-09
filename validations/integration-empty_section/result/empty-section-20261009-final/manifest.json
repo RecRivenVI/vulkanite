@@ -1,0 +1,135 @@
+{
+  "run_id": "empty-section-20261009-final",
+  "scenario": "empty-section",
+  "mode": "functional",
+  "git_head": "ef79286e6f80adc60c67fe2f3caa400096345bb1",
+  "git_dirty": true,
+  "diff_hash": "293063182073987502C94CCC04E523B025B7D81A602F23D5BEAA3B16FF032A70",
+  "automation_jar_sha256": "FD7BE9419F8A7BD049D8BB4E08D647962977C936AD53F63760E81F25C1DBABD9",
+  "shader_pack_sha256": "E9B262C679198995AAB3F8DEB173FCD07ACEF17DCA6A4DB03716A72AA58DE71F",
+  "run_directory": "D:\\Workspaces\\Repositories\\GitHub\\RecRivenVI\\vulkanite\\validations\\integration-empty_section\\result\\empty-section-20261009-final",
+  "game_directory": "D:\\Workspaces\\Repositories\\GitHub\\RecRivenVI\\vulkanite\\validations\\integration-empty_section\\instance\\26.3-fabric\\client",
+  "world": "auto-empty-section",
+  "audit": {
+    "port": 53217,
+    "endpoint": "127.0.0.1:53217",
+    "token_id": "per-run"
+  },
+  "target_block": {
+    "z": 8,
+    "x": 8,
+    "y": 70
+  },
+  "started": "2026-10-09T12:38:42.0527118+08:00",
+  "pass_criteria": [
+    "non-empty baseline accepted",
+    "confirmed empty update accepted after STONE->AIR",
+    "no stale BLAS republish (blasRejected may rise; published must not restore old without place)",
+    "AIR->STONE yields new non-empty revision",
+    "rapid toggle ends consistent with last block state"
+  ],
+  "coverage_gaps": [
+    "The aggregate section and TLAS counters cannot establish per-origin holder uniqueness."
+  ],
+  "preflight_status": "OK",
+  "gradle_pid": 66008,
+  "audit_token_fingerprint": "tk-19c6f",
+  "audit_port": 53217,
+  "audit_up": true,
+  "result_steps": [
+    {
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":55,\"nonEmptyMeshUpdates\":126,\"emptyShortcutAccepts\":0,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":463,\"removeSectionRemoved\":0,\"removeSectionNoHolder\":463,\"tangentFallbacks\":0,\"activeGeneration\":1,\"currentSections\":181,\"tlasInstances\":126,\"lastEmptyRevision\":5,\"lastNonEmptyRevision\":23,\"blasEnqueued\":126,\"blasPublished\":126,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":23491200,\"cpuPipelineNanos\":73892600,\"cpuTlasNanos\":39296000,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":3960,\"frameCount\":13,\"lastFrameNanos\":28912200}}",
+      "status": "PASS",
+      "pass": true,
+      "name": "baseline_nonempty"
+    },
+    {
+      "detail": "gen=1",
+      "status": "PASS",
+      "pass": true,
+      "name": "generation_recorded"
+    },
+    {
+      "detail": "enq=126",
+      "status": "PASS",
+      "pass": true,
+      "name": "blas_enqueued"
+    },
+    {
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":56,\"nonEmptyMeshUpdates\":507,\"emptyShortcutAccepts\":1,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":464,\"removeSectionRemoved\":1,\"removeSectionNoHolder\":463,\"tangentFallbacks\":0,\"activeGeneration\":1,\"currentSections\":561,\"tlasInstances\":505,\"lastEmptyRevision\":32,\"lastNonEmptyRevision\":66,\"blasEnqueued\":507,\"blasPublished\":507,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":52177700,\"cpuPipelineNanos\":128102100,\"cpuTlasNanos\":57926900,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":26136,\"frameCount\":57,\"lastFrameNanos\":7683700}}",
+      "status": "PASS",
+      "pass": true,
+      "name": "empty_update_accepted"
+    },
+    {
+      "detail": "Aggregate sections=561 TLAS instances=505; no per-origin identity is exposed by this probe",
+      "status": "NOT_MEASURED",
+      "name": "origin_holder_uniqueness"
+    },
+    {
+      "detail": "nonEmpty 507 -> 507",
+      "status": "PASS",
+      "pass": true,
+      "name": "no_stale_republish"
+    },
+    {
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":130,\"nonEmptyMeshUpdates\":509,\"emptyShortcutAccepts\":75,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":538,\"removeSectionRemoved\":1,\"removeSectionNoHolder\":537,\"tangentFallbacks\":0,\"activeGeneration\":1,\"currentSections\":635,\"tlasInstances\":506,\"lastEmptyRevision\":602,\"lastNonEmptyRevision\":602,\"blasEnqueued\":509,\"blasPublished\":509,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":94507500,\"cpuPipelineNanos\":314239400,\"cpuTlasNanos\":135083600,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":177336,\"frameCount\":357,\"lastFrameNanos\":9322100}}",
+      "status": "PASS",
+      "pass": true,
+      "name": "replace_nonempty"
+    },
+    {
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":505,\"nonEmptyMeshUpdates\":524,\"emptyShortcutAccepts\":450,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":913,\"removeSectionRemoved\":6,\"removeSectionNoHolder\":907,\"tangentFallbacks\":0,\"activeGeneration\":1,\"currentSections\":635,\"tlasInstances\":506,\"lastEmptyRevision\":1398,\"lastNonEmptyRevision\":1398,\"blasEnqueued\":524,\"blasPublished\":524,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":155041500,\"cpuPipelineNanos\":577343600,\"cpuTlasNanos\":246653500,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":486792,\"frameCount\":971,\"lastFrameNanos\":8376700}}",
+      "status": "PASS",
+      "pass": true,
+      "name": "rapid_toggle_no_crash"
+    },
+    {
+      "detail": "nonEmpty 509 -> 524",
+      "status": "PASS",
+      "pass": true,
+      "name": "final_consistent"
+    }
+  ],
+  "final_snapshot": {
+    "ok": true,
+    "cmd": "snapshot",
+    "data": {
+      "emptyMeshUpdates": 505,
+      "nonEmptyMeshUpdates": 524,
+      "emptyShortcutAccepts": 450,
+      "emptyShortcutSkipped": 0,
+      "removeSectionCalls": 913,
+      "removeSectionRemoved": 6,
+      "removeSectionNoHolder": 907,
+      "tangentFallbacks": 0,
+      "activeGeneration": 1,
+      "currentSections": 635,
+      "tlasInstances": 506,
+      "lastEmptyRevision": 1398,
+      "lastNonEmptyRevision": 1398,
+      "blasEnqueued": 524,
+      "blasPublished": 524,
+      "blasRejected": 0,
+      "cpuIndexedFenceNanos": 0,
+      "cpuIndexedReadbackNanos": 0,
+      "cpuAssembleNanos": 155041500,
+      "cpuPipelineNanos": 577343600,
+      "cpuTlasNanos": 246653500,
+      "gpuRayTicks": 0,
+      "gpuTlasTicks": 0,
+      "gpuDynBlasTicks": 0,
+      "gpuTerrainBlasTicks": 0,
+      "indexedDraws": 0,
+      "indexedBytes": 0,
+      "assembledVertices": 486792,
+      "frameCount": 971,
+      "lastFrameNanos": 8376700
+    }
+  },
+  "status": "PASS",
+  "launcher_exit_confirmed": true,
+  "remaining_validation_game_pids": [],
+  "launcher_exit_code": 0,
+  "completed": "2026-10-09T12:39:17.8904775+08:00"
+}

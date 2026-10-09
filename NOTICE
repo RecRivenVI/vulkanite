@@ -1,0 +1,17 @@
+Vulkanite
+
+Vulkanite is licensed under GNU Lesser General Public License, version 3 only. See `LICENSE.txt` for the license text.
+
+The following project files and build components are derived from Raven's Mod Template 1.0.0 and remain under its MIT license. The original license text is preserved in `licenses/ravens_mod_template-mit.txt`:
+
+- `AGENTS.md`, `CLAUDE.md`, `.rumdl.toml`, and `.github/workflows/specification.yml`
+- `components/configuration`, `components/conventions`, and `components/compliance`
+
+The following third-party files are distributed unmodified with their respective licenses:
+
+Gradle Wrapper
+Files: `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar`
+Source: Gradle 9.8.1, https://gradle.org
+Copyright: Copyright 2015 the original author or authors.
+License: Apache License, Version 2.0, https://www.apache.org/licenses/LICENSE-2.0
+SPDX-License-Identifier: Apache-2.0

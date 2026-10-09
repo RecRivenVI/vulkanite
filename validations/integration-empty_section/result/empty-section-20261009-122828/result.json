@@ -1,0 +1,51 @@
+{
+  "steps": [
+    {
+      "name": "baseline_nonempty",
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":0,\"nonEmptyMeshUpdates\":0,\"emptyShortcutAccepts\":0,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":0,\"removeSectionRemoved\":0,\"removeSectionNoHolder\":0,\"tangentFallbacks\":0,\"activeGeneration\":0,\"currentSections\":0,\"tlasInstances\":0,\"lastEmptyRevision\":-1,\"lastNonEmptyRevision\":-1,\"blasEnqueued\":0,\"blasPublished\":0,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":0,\"cpuPipelineNanos\":0,\"cpuTlasNanos\":0,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":0,\"frameCount\":0,\"lastFrameNanos\":0}}",
+      "pass": false
+    },
+    {
+      "name": "generation_recorded",
+      "detail": "gen=0",
+      "pass": true
+    },
+    {
+      "name": "blas_enqueued",
+      "detail": "enq=0",
+      "pass": false
+    },
+    {
+      "name": "empty_update_accepted",
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":0,\"nonEmptyMeshUpdates\":0,\"emptyShortcutAccepts\":1,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":0,\"removeSectionRemoved\":0,\"removeSectionNoHolder\":0,\"tangentFallbacks\":0,\"activeGeneration\":0,\"currentSections\":0,\"tlasInstances\":0,\"lastEmptyRevision\":-1,\"lastNonEmptyRevision\":-1,\"blasEnqueued\":0,\"blasPublished\":0,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":0,\"cpuPipelineNanos\":0,\"cpuTlasNanos\":0,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":0,\"frameCount\":0,\"lastFrameNanos\":0}}",
+      "pass": false
+    },
+    {
+      "name": "holders_unique",
+      "detail": "sections=0 tlas=0",
+      "pass": true
+    },
+    {
+      "name": "no_stale_republish",
+      "detail": "nonEmpty 0 -> 0",
+      "pass": true
+    },
+    {
+      "name": "replace_nonempty",
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":0,\"nonEmptyMeshUpdates\":0,\"emptyShortcutAccepts\":75,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":0,\"removeSectionRemoved\":0,\"removeSectionNoHolder\":0,\"tangentFallbacks\":0,\"activeGeneration\":0,\"currentSections\":0,\"tlasInstances\":0,\"lastEmptyRevision\":-1,\"lastNonEmptyRevision\":-1,\"blasEnqueued\":0,\"blasPublished\":0,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":0,\"cpuPipelineNanos\":0,\"cpuTlasNanos\":0,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":0,\"frameCount\":0,\"lastFrameNanos\":0}}",
+      "pass": false
+    },
+    {
+      "name": "rapid_toggle_no_crash",
+      "detail": "{\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":0,\"nonEmptyMeshUpdates\":0,\"emptyShortcutAccepts\":450,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":0,\"removeSectionRemoved\":0,\"removeSectionNoHolder\":0,\"tangentFallbacks\":0,\"activeGeneration\":0,\"currentSections\":0,\"tlasInstances\":0,\"lastEmptyRevision\":-1,\"lastNonEmptyRevision\":-1,\"blasEnqueued\":0,\"blasPublished\":0,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":0,\"cpuPipelineNanos\":0,\"cpuTlasNanos\":0,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":0,\"frameCount\":0,\"lastFrameNanos\":0}}",
+      "pass": true
+    },
+    {
+      "name": "final_consistent",
+      "detail": "nonEmpty 0 -> 0",
+      "pass": true
+    }
+  ],
+  "reason": "baseline_nonempty :: {\"ok\":true,\"cmd\":\"snapshot\",\"data\":{\"emptyMeshUpdates\":0,\"nonEmptyMeshUpdates\":0,\"emptyShortcutAccepts\":0,\"emptyShortcutSkipped\":0,\"removeSectionCalls\":0,\"removeSectionRemoved\":0,\"removeSectionNoHolder\":0,\"tangentFallbacks\":0,\"activeGeneration\":0,\"currentSections\":0,\"tlasInstances\":0,\"lastEmptyRevision\":-1,\"lastNonEmptyRevision\":-1,\"blasEnqueued\":0,\"blasPublished\":0,\"blasRejected\":0,\"cpuIndexedFenceNanos\":0,\"cpuIndexedReadbackNanos\":0,\"cpuAssembleNanos\":0,\"cpuPipelineNanos\":0,\"cpuTlasNanos\":0,\"gpuRayTicks\":0,\"gpuTlasTicks\":0,\"gpuDynBlasTicks\":0,\"gpuTerrainBlasTicks\":0,\"indexedDraws\":0,\"indexedBytes\":0,\"assembledVertices\":0,\"frameCount\":0,\"lastFrameNanos\":0}}",
+  "status": "FAIL"
+}

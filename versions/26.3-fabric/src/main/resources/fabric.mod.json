@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "id": "${mod_id}",
+    "version": "${mod_version}",
+    "name": "${mod_name}",
+    "description": "${mod_description}",
+    "authors": [
+        "${mod_authors}"
+    ],
+    "license": "${mod_license}",
+    "environment": "${fabric_environment}",
+    "mixins": [
+        "vulkanite.mixins.json"
+    ],
+    "depends": {
+        "fabricloader": ">=${loader_version}",
+        "iris": "=${iris_mod_version}",
+        "sodium": "=${sodium_mod_version}",
+        "minecraft": "${minecraft_version}",
+        "java": ">=${java_version}"
+    }
+}

@@ -1,0 +1,5 @@
+{
+  "pid": 14520,
+  "command": "C:\\WINDOWS\\system32\\cmd.exe /d /c gradlew.bat :version:26.3-fabric:runValidationIntegrationEmptySectionClient",
+  "created": "2026-10-09T13:19:20.7448790+08:00"
+}

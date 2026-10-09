@@ -7,7 +7,6 @@
 
 # VS Code
 .vscode/
-bin/
 
 # IntelliJ
 out/
@@ -105,6 +104,7 @@ $RECYCLE.BIN/
 *.lnk
 
 .gradle
+.gradle/
 build/
 
 # Ignore Gradle GUI config
@@ -123,3 +123,10 @@ run/
 
 run-26.3/
 .vulkanite-cache/
+
+# Template-managed local configuration and validation instances.
+/local.toml
+/.kotlin/
+/instances/**
+!/instances/**/
+/validations/*/instance/
