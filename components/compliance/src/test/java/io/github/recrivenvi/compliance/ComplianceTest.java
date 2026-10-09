@@ -1176,6 +1176,10 @@ class ComplianceTest {
                         + "\n// version \"2.0\" of the run setup\n"
                         + "println(project.version)\n"
                         + "val url = \"https://maven.example.com:8443/releases\" // 1.21\n"
+                        + "repositories {\n"
+                        + "    maven(\"https://192.168.1.10/repository/releases\")\n"
+                        + "}\n"
+                        + "/* The loader \"0.19.5\" comes from\n   target.properties. */\n"
                         + "dependencies {\n"
                         + "    compileOnly(target.module(\"maven.modrinth:sodium\", \"sodium_version\"))\n"
                         + "}\n");

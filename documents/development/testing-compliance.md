@@ -17,7 +17,7 @@
 ```text
 失败 D-02 documents/usage/Backpack.md: 应写作 <type>-<topic>.md：字段之间用 -，组合词用 _
 警告 D-03 documents/usage/instalation-basics.md: 类型词 instalation 不在 documents/usage 的建议词中；最接近的建议词：installation
-规范 1.0.0 合规检查：失败 1，警告 1，检查了 143 个文件
+规范 1.0.1 合规检查：失败 1，警告 1，检查了 143 个文件
 ```
 
 完整结果同时写入 `build/reports/compliance/report.json` 与 `report.md`。按规则编号在 AGENTS.md 中找到对应条款并修正。

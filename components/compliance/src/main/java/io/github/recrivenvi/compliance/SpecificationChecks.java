@@ -19,7 +19,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 final class SpecificationChecks {
-    static final String VERSION = "1.0.0";
+    static final String VERSION = "1.0.1";
     static final String MANIFEST =
             "components/compliance/src/main/resources/io/github/recrivenvi/compliance/template-files.sha256";
     static final List<String> TEMPLATE_DIRECTORIES =

@@ -100,7 +100,7 @@ final class LayoutChecks {
                     "/instances/**",
                     "!/instances/**/",
                     "/validations/*/instance/");
-    // T-02 逐行检查 Target 脚本、跳过行注释：字符串中的版本号与带版本的依赖坐标，以及插件版本。
+    // T-02 逐行检查去掉注释后的 Target 脚本：字符串中的版本号（网址除外）与带版本的依赖坐标，以及插件版本。
     private static final Pattern STRING = Pattern.compile("\"(?:[^\"\\\\]|\\\\.)*\"");
     private static final Pattern COORDINATE = Pattern.compile("\"[\\w.${}-]+:[\\w.${}-]+:.*");
     private static final Pattern VERSION_NUMBER = Pattern.compile("\\d+\\.\\d+");
@@ -353,16 +353,17 @@ final class LayoutChecks {
     private static void targetScripts(Repository repository, List<Finding> findings) {
         for (String file : repository.filesUnder("versions")) {
             if (!file.matches("versions/[^/]+/build\\.gradle\\.kts")) continue;
-            List<String> lines = repository.text(file).lines().toList();
-            for (int i = 0; i < lines.size(); i++) {
-                String line = withoutComment(lines.get(i));
+            String[] lines = withoutComments(repository.text(file).replace("\r", "")).split("\n");
+            for (int i = 0; i < lines.length; i++) {
+                String line = lines[i];
                 Matcher literal = STRING.matcher(line);
                 boolean version = PLUGIN_VERSION.matcher(literal.replaceAll("\"\"")).find();
                 literal.reset();
                 while (!version && literal.find())
                     version =
                             COORDINATE.matcher(literal.group()).matches()
-                                    || VERSION_NUMBER.matcher(literal.group()).find();
+                                    || !literal.group().contains("://")
+                                            && VERSION_NUMBER.matcher(literal.group()).find();
                 if (version)
                     findings.add(
                             new Finding(
@@ -375,16 +376,29 @@ final class LayoutChecks {
         }
     }
 
-    // 字符串中的 // 不是注释，例如网址。
-    private static String withoutComment(String line) {
+    // 去掉行注释与块注释，保留换行以便报告行号；字符串中的 // 与 /* 不是注释，例如网址。
+    private static String withoutComments(String text) {
+        StringBuilder code = new StringBuilder();
         boolean string = false;
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
-            if (string && c == '\\') i++;
-            else if (c == '"') string = !string;
-            else if (!string && line.startsWith("//", i)) return line.substring(0, i);
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (!string && text.startsWith("//", i)) {
+                while (i + 1 < text.length() && text.charAt(i + 1) != '\n') i++;
+            } else if (!string && text.startsWith("/*", i)) {
+                int end = text.indexOf("*/", i + 2);
+                int stop = end < 0 ? text.length() : end + 2;
+                for (int j = i; j < stop; j++) if (text.charAt(j) == '\n') code.append('\n');
+                i = stop - 1;
+            } else {
+                if (string && c == '\\' && i + 1 < text.length()) {
+                    code.append(c);
+                    c = text.charAt(++i);
+                } else if (c == '"') string = !string;
+                else if (c == '\n') string = false;
+                code.append(c);
+            }
         }
-        return line;
+        return code.toString();
     }
 
     private static void metadata(Repository repository, List<Finding> findings) {
