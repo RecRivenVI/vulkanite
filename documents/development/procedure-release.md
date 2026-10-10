@@ -15,7 +15,7 @@
 2. 在 `documents/release/` 的更新日志中，把 `## [未发布]` 改为 `## [<version>] - <date>`，`<date>` 为当天日期，写作 `YYYY-MM-DD`；在其上方新建空的 `## [未发布]`（D-14）。
 3. 核对更新日志的条目覆盖本次发布的全部玩家可见改动，玩家文档与新行为一致（W-01）。
 4. 执行 `.\gradlew.bat spotlessApply`，再执行 `.\gradlew.bat check`。
-5. 执行 `.\gradlew.bat verifyRelease`：它把每个 Target 的发行 JAR 收集到 `build/release/<version>/`，并核对每个 JAR 有加载器元数据、`META-INF/` 中的许可文件与 `product` 组件的内容，没有 `probe` 源码集的类与元数据（V-06）；Target 开启了源码 JAR 时一并核对其中的许可文件。命令失败时按输出修正，再执行一次。
+5. 执行 `.\gradlew.bat verifyRelease`：它把每个 Target 的发行 JAR 收集到 `build/release/<version>/`，并核对每个 JAR 有加载器元数据（直接包含，或位于其中恰好一个内嵌 JAR 里）、`META-INF/` 中的许可文件与 `product` 组件的内容，没有 `probe` 源码集的类与元数据（V-06）；Target 开启了源码 JAR 时一并核对其中的许可文件。命令失败时按输出修正，再执行一次。
 6. 在每个 Target 上执行 `runClient` 与 `runServer`，按 [format-metadata](../reference/format-metadata.md) 的"运行端"一节判断产品是否正常加载；`runServer` 需要使用者已在 `local.toml` 中接受 EULA（I-02）；没有接受时请使用者决定，不代为写入（G-04），使用者不接受时跳过 `runServer`。运行端为 `client` 或 `server` 时按 [procedure-switch_side](procedure-switch_side.md) 确认与未安装本模组的一端互通。
 7. 向使用者报告 `build/release/<version>/` 中的文件清单与第 6 步的结果；提交、打标签与上传由使用者决定。
 

@@ -1,6 +1,6 @@
 # 仓库规范
 
-规范版本：1.0.1
+规范版本：1.2.1
 
 本文件是采用本模板的仓库共用的规范，写给 Agent，也约束人类开发者；它与其他模板文件（G-08）随模板版本固定，项目内不修改。项目的信息与补充规则写在项目规范 [documents/AGENTS.md](documents/AGENTS.md)，它对整个仓库生效，只能补充本规范，不能放宽或改写。开始工作前读完这两份文件。
 
@@ -127,6 +127,7 @@
 - **P-04** [检查] 加载器元数据中的模组身份、版本、作者、许可、描述、Forge 与 Fabric 的运行端、入口类所在的包，以及对 Minecraft、加载器与 Java 的版本要求，都用占位符从第 4 节的来源取值；字段与占位符的对应见 [format-metadata](documents/reference/format-metadata.md)。
 - **P-05** [检查] Target 的资源与数据生成产物中，`assets/` 与 `data/` 下的路径符合 Minecraft 资源位置规则：只用小写英文字母、数字、`_`、`-`、`.` 与目录分隔符。
 - **P-06** [提示] 由模板创建的项目不沿用模板自身的模组 ID `ravens_mod_template` 与 Java 包 `io.github.recrivenvi.modtemplate`；仓库的 Git 远程 `origin` 指向模板仓库时除外。
+- **P-07** [提示] 模板文件、`NOTICE` 与 `licenses/` 之外的文件不出现模板自身的名称 `ravens_mod_template`、`modtemplate` 与 `Raven's Mod Template`（不区分大小写）；仓库的 Git 远程 `origin` 指向模板仓库时除外。
 
 ## 7. 运行与测试
 

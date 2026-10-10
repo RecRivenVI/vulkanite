@@ -32,7 +32,12 @@ class ReleaseJarTest {
                 ZipOutputStream zip = new ZipOutputStream(file)) {
             for (Map.Entry<String, String> entry : entries.entrySet()) {
                 zip.putNextEntry(new ZipEntry(entry.getKey()));
-                zip.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
+                zip.write(
+                        entry.getValue()
+                                .getBytes(
+                                        entry.getKey().endsWith(".jar")
+                                                ? StandardCharsets.ISO_8859_1
+                                                : StandardCharsets.UTF_8));
                 zip.closeEntry();
             }
         }
@@ -71,6 +76,32 @@ class ReleaseJarTest {
         assertEquals(
                 List.of(METADATA + " 是探针 examplemod_probe 的元数据", "含有探针的 a/b/probe/Probe.class"),
                 problems(entries));
+    }
+
+    @Test
+    void metadataMayLiveInOneNestedJar() throws IOException {
+        Map<String, String> entries = complete();
+        entries.remove(METADATA);
+        entries.put("META-INF/wrapper/examplemod-game.jar", nested(METADATA, PRODUCT));
+        assertEquals(List.of(), problems(entries));
+        entries.put("META-INF/wrapper/other.jar", nested(METADATA, PRODUCT));
+        assertEquals(List.of("2 个内嵌 JAR 含有 " + METADATA + "；发行 JAR 只能包装一个模组"), problems(entries));
+        entries.remove("META-INF/wrapper/other.jar");
+        entries.put(
+                "META-INF/wrapper/examplemod-game.jar",
+                nested(METADATA, "modId = \"examplemod_probe\"\n"));
+        assertEquals(List.of(METADATA + " 是探针 examplemod_probe 的元数据"), problems(entries));
+    }
+
+    // 内嵌 JAR 的字节以 ISO-8859-1 存进字符串，jar() 写出 .jar 条目时按同一编码还原。
+    private static String nested(String name, String content) throws IOException {
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
+            zip.putNextEntry(new ZipEntry(name));
+            zip.write(content.getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        return bytes.toString(StandardCharsets.ISO_8859_1);
     }
 
     @Test

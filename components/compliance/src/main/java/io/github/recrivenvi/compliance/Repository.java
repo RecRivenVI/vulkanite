@@ -8,15 +8,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 record Repository(
         Path root,
         List<String> files,
+        Set<String> binaries,
         Set<String> targets,
         Set<String> components,
         Set<String> products,
@@ -41,10 +45,16 @@ record Repository(
             Set<String> instances,
             Set<String> sourceSets,
             Vocabulary vocabulary) {
-        List<String> tracked = gitFiles(root);
+        Map<String, Boolean> tracked = gitFiles(root);
         return new Repository(
                 root,
-                tracked != null ? tracked : walk(root),
+                tracked != null ? List.copyOf(tracked.keySet()) : walk(root),
+                tracked != null
+                        ? tracked.entrySet().stream()
+                                .filter(Map.Entry::getValue)
+                                .map(Map.Entry::getKey)
+                                .collect(Collectors.toUnmodifiableSet())
+                        : Set.of(),
                 Set.copyOf(targets),
                 Set.copyOf(components),
                 Set.copyOf(products),
@@ -65,6 +75,13 @@ record Repository(
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    // Git 属性写明 binary 或 -text 的文件不是文本；其余文件前 8 KiB 含有空字节时也视为二进制。
+    boolean binary(String path, byte[] bytes) {
+        if (binaries.contains(path)) return true;
+        for (int i = 0; i < Math.min(bytes.length, 8192); i++) if (bytes[i] == 0) return true;
+        return false;
     }
 
     String text(String path) {
@@ -112,15 +129,20 @@ record Repository(
         return Stream.of(output.split("\0")).filter(entry -> !entry.isEmpty()).sorted().toList();
     }
 
-    private static List<String> gitFiles(Path root) {
-        String output = git(root, "ls-files", "--cached", "--others", "--exclude-standard", "-z");
+    // 每一项形如 "i/lf w/lf attr/text=auto eol=lf<制表符><路径>"；binary 与 -text 都输出 attr/-text。
+    private static Map<String, Boolean> gitFiles(Path root) {
+        String output =
+                git(root, "ls-files", "--cached", "--others", "--exclude-standard", "--eol", "-z");
         if (output == null) return null;
-        Set<String> files = new TreeSet<>();
-        for (String entry : output.split("\0"))
-            if (!entry.isEmpty()
-                    && Files.isRegularFile(root.resolve(entry))
-                    && !THIRD_PARTY.matcher(entry).matches()) files.add(entry);
-        return List.copyOf(files);
+        Map<String, Boolean> files = new TreeMap<>();
+        for (String entry : output.split("\0")) {
+            int tab = entry.indexOf('\t');
+            if (tab < 0) continue;
+            String path = entry.substring(tab + 1);
+            if (Files.isRegularFile(root.resolve(path)) && !THIRD_PARTY.matcher(path).matches())
+                files.put(path, entry.substring(0, tab).contains("attr/-text"));
+        }
+        return files;
     }
 
     private static String git(Path root, String... arguments) {

@@ -26,6 +26,7 @@ public enum Rule {
     P04("P-04", Level.FAIL, "加载器元数据从占位符取值"),
     P05("P-05", Level.FAIL, "资源路径符合资源位置规则"),
     P06("P-06", Level.WARN, "派生项目不沿用模板的模组 ID 与 Java 包"),
+    P07("P-07", Level.WARN, "模板名称只出现在模板文件、NOTICE 与 licenses/ 中"),
     I04("I-04", Level.FAIL, "instances/ 中只有已登记的 Target 与实例"),
     V01("V-01", Level.FAIL, "验证目录符合命名规则"),
     V02("V-02", Level.WARN, "验证类型取自建议词"),

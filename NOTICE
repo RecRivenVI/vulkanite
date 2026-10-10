@@ -1,17 +1,17 @@
-Vulkanite
+Vulkanite 采用 GNU Lesser General Public License, version 3 only 许可，许可原文见 `LICENSE.txt`。
 
-Vulkanite is licensed under GNU Lesser General Public License, version 3 only. See `LICENSE.txt` for the license text.
+来自 Raven's Mod Template 的项目文件与构建组件保留其 MIT 许可；下列第三方文件按各自的许可原样分发。
 
-The following project files and build components are derived from Raven's Mod Template 1.0.0 and remain under its MIT license. The original license text is preserved in `licenses/ravens_mod_template-mit.txt`:
-
-- `AGENTS.md`, `CLAUDE.md`, `.rumdl.toml`, and `.github/workflows/specification.yml`
-- `components/configuration`, `components/conventions`, and `components/compliance`
-
-The following third-party files are distributed unmodified with their respective licenses:
+Raven's Mod Template
+文件：`AGENTS.md`、`CLAUDE.md`、`.rumdl.toml`、`.github/workflows/specification.yml`、`components/configuration`、`components/conventions`、`components/compliance`
+来源：Raven's Mod Template 1.2.1，https://github.com/RecRivenVI/Ravens-Mod-Template
+版权声明：Copyright (c) 2026 RavenYin
+许可：MIT，许可原文见 `licenses/ravens_mod_template-mit.txt`
+SPDX-License-Identifier: MIT
 
 Gradle Wrapper
-Files: `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar`
-Source: Gradle 9.8.1, https://gradle.org
-Copyright: Copyright 2015 the original author or authors.
-License: Apache License, Version 2.0, https://www.apache.org/licenses/LICENSE-2.0
+文件：`gradlew`、`gradlew.bat`、`gradle/wrapper/gradle-wrapper.jar`
+来源：Gradle 9.8.1，https://gradle.org
+版权声明：Copyright 2015 the original author or authors.
+许可：Apache License, Version 2.0，https://www.apache.org/licenses/LICENSE-2.0
 SPDX-License-Identifier: Apache-2.0

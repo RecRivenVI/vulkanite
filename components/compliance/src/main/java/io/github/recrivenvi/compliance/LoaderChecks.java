@@ -2,6 +2,7 @@ package io.github.recrivenvi.compliance;
 
 import groovy.json.JsonException;
 import groovy.json.JsonSlurper;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -58,6 +60,19 @@ final class LoaderChecks {
     private static final String TEMPLATE_REPOSITORY = "recrivenvi/ravens-mod-template";
     private static final String TEMPLATE_MOD_ID = "ravens_mod_template";
     private static final String TEMPLATE_GROUP = "io.github.recrivenvi.modtemplate";
+    private static final Pattern TEMPLATE_NAME =
+            Pattern.compile(
+                    "ravens_mod_template|modtemplate|raven's mod template",
+                    Pattern.CASE_INSENSITIVE);
+    // 这些位置按规定保留模板的名称；gradle.properties 中的模板身份由 P-06 报告。
+    private static final Set<String> NAMED_FILES =
+            Set.of(
+                    "AGENTS.md",
+                    "CLAUDE.md",
+                    ".rumdl.toml",
+                    ".github/workflows/specification.yml",
+                    "NOTICE",
+                    "gradle.properties");
 
     private LoaderChecks() {}
 
@@ -72,16 +87,17 @@ final class LoaderChecks {
 
     // 用模板创建的仓库在改名之前仍带着模板的身份；只有模板仓库本身可以使用它。
     private static void identity(Repository repository, List<Finding> findings) {
-        Properties facts = repository.properties("gradle.properties");
-        boolean id = TEMPLATE_MOD_ID.equals(facts.getProperty("mod_id", "").strip());
-        boolean group = TEMPLATE_GROUP.equals(facts.getProperty("mod_group", "").strip());
-        if (!id && !group) return;
         String origin = repository.origin();
         if (origin != null
                 && origin.toLowerCase(Locale.ROOT)
                         .replaceAll("\\.git/?$", "")
                         .replaceAll("/$", "")
                         .endsWith(TEMPLATE_REPOSITORY)) return;
+        names(repository, findings);
+        Properties facts = repository.properties("gradle.properties");
+        boolean id = TEMPLATE_MOD_ID.equals(facts.getProperty("mod_id", "").strip());
+        boolean group = TEMPLATE_GROUP.equals(facts.getProperty("mod_group", "").strip());
+        if (!id && !group) return;
         findings.add(
                 Finding.of(
                         Rule.P06,
@@ -89,6 +105,31 @@ final class LoaderChecks {
                         "仍在使用模板自身的"
                                 + (id && group ? "模组 ID 与 Java 包" : id ? "模组 ID" : "Java 包")
                                 + "；按 documents/development/procedure-derive_project.md 改名"));
+    }
+
+    // 从模板带入、却没有按本项目改写的内容，例如模板示例模组的文档。
+    private static void names(Repository repository, List<Finding> findings) {
+        for (String file : repository.files()) {
+            if (NAMED_FILES.contains(file)
+                    || file.startsWith("licenses/")
+                    || Repository.result(file)
+                    || LayoutChecks.TEMPLATE_COMPONENTS.stream()
+                            .anyMatch(name -> file.startsWith("components/" + name + "/")))
+                continue;
+            byte[] bytes = repository.bytes(file);
+            if (repository.binary(file, bytes)) continue;
+            List<String> lines = new String(bytes, StandardCharsets.UTF_8).lines().toList();
+            for (int i = 0; i < lines.size(); i++)
+                if (TEMPLATE_NAME.matcher(lines.get(i)).find()) {
+                    findings.add(
+                            new Finding(
+                                    Rule.P07,
+                                    file,
+                                    i + 1,
+                                    "含有模板自身的名称；模板名称只保留在模板文件、NOTICE 与 licenses/ 中，" + "按本项目改写或删除"));
+                    break;
+                }
+        }
     }
 
     private static void packages(Repository repository, String group, List<Finding> findings) {

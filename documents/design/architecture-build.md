@@ -31,7 +31,7 @@ Loom 1.18 以 Java 25 编译，因此 Gradle 守护进程必须运行在 JDK 25 
 4. 把 `src/main/templates/` 展开到 `build/generated/sources/templates/main/` 并加入源码，展开加载器元数据文件。展开值按字符串规则转义，因此占位符只能放在字符串中（P-01）。把根目录的 `LICENSE`、`NOTICE`、`COPYING`、`COPYING.LESSER` 复制进模组的 `META-INF/`，把 `licenses/` 复制进 `META-INF/licenses/`；Target 脚本开启源码 JAR（`java { withSourcesJar() }`）时，源码 JAR 以同样的位置包含这些文件，1.x Fabric 重映射后的源码 JAR 也一样。
 5. Target 有 `src/probe/` 时创建 `probe` 源码集：编译与运行类路径包含 `main` 的输出与类路径，Fabric 还包含 `client`；同样展开 `src/probe/templates/` 与元数据；让 `check` 编译它。探针缺少产品已有的元数据文件时在配置阶段失败。
 6. 按加载器准备原生目录：NeoForge 与 Forge 把 `src/generated/resources/` 加入资源并排除数据生成的 `.cache/`；Fabric 在 Loom 应用后添加 Minecraft 与 Fabric Loader 依赖，1.x 版本另按 `mappings` 添加映射表，并开启 `client` 源码集。
-7. 让每个 `product` 组件成为 `implementation` 依赖，并把它的 JAR 内容合并进模组 JAR。Gradle 按压缩包整体跟踪合并来源，脚本给 `jar` 加的包含与排除规则因此也列为 `jar` 的输入，规则改变时重新打包。注册该 Target 的 `verifyRelease`：构建发行 JAR，核对其中有加载器元数据、`META-INF/` 中的许可文件与 `product` 组件的全部条目，没有 `probe` 源码集的文件与探针的元数据；脚本开启源码 JAR 时一并核对其中的许可文件。
+7. 让每个 `product` 组件成为 `implementation` 依赖，并把它的 JAR 内容合并进模组 JAR。Gradle 按压缩包整体跟踪合并来源，脚本给 `jar` 加的包含与排除规则因此也列为 `jar` 的输入，规则改变时重新打包。注册该 Target 的 `verifyRelease`：构建发行 JAR，核对其中有加载器元数据、`META-INF/` 中的许可文件与 `product` 组件的全部条目，没有 `probe` 源码集的文件与探针的元数据；脚本开启源码 JAR 时一并核对其中的许可文件。模组需要由加载器原生的引导层包装时，Target 脚本把包装后的 JAR 作为发行 JAR 写到 `build/libs/<mod_id>-<target>-<version>.jar` 并挂到 `assemble` 上，模组 JAR 改写到其他位置；这时加载器元数据可以位于发行 JAR 中恰好一个内嵌 JAR 里，许可文件与 `product` 组件的条目仍须直接位于发行 JAR 中。
 8. 为每个日常实例注册准备任务：创建实例目录；把实例设置 `mods` 中的本地输入核对哈希后复制进 `mods/`，并移除上次复制、这次已不在列表中的副本，不覆盖或删除使用者自己的文件，规则见 [configuration-repository](../reference/configuration-repository.md)；服务端首次运行时写入 `online-mode=false` 与 `white-list=false`，让离线账号的第二名玩家可以加入；客户端首次运行时写入只含 `onboardAccessibility:false` 的 `options.txt`，跳过新实例的无障碍引导界面，其余设置由游戏补齐；文件已存在时都不覆盖；使用者接受 EULA 时写入 `eula.txt`。
 9. 为每项验证 `targets` 中的这个 Target 与 `[instances]` 中的每个角色注册同样的准备任务，实例目录为 `validations/<name>/instance/<target>/<角色>/`。
 10. 脚本求值结束后，确认应用了与加载器匹配的插件（T-03），再调用对应的适配器。
@@ -101,7 +101,7 @@ plugins {
 rootProject.name = "runtime_safety"
 ```
 
-该插件让组件使用仓库的 `gradle/libs.versions.toml` 与 Maven Central，并为组件根项目应用 `base` 与 Spotless：Kotlin DSL 用 ktfmt，常见文本、脚本、C/C++、Rust 与着色器源码做空白处理，应用 `java` 时 Java 用 google-java-format 并把 `--release` 默认设为各 Target 中最低的 Java 版本，测试使用 JUnit Platform。`build/`、`third_party/` 与 `node_modules/` 不参与格式化。
+该插件让组件使用仓库的 `gradle/libs.versions.toml` 与 Maven Central，并为组件根项目应用 `base` 与 Spotless：Kotlin DSL 用 ktfmt，常见文本、脚本、C/C++、Rust 与着色器源码做空白处理，应用 `java` 时 Java 用 google-java-format 并把 `--release` 默认设为各 Target 中最低的 Java 版本，测试使用 JUnit Platform。`build/`、`third_party/`、`node_modules/` 与 `dist/` 不参与格式化。
 
 组件的构建内容写在它自己的 `build.gradle.kts` 中。不是 Java 写的工具，用 `Exec` 等任务调用自己的工具链，并让 `check` 依赖这些任务，例如运行 PowerShell 或 Python 测试、调用 clang-format 或 rustfmt 检查格式。工具优先选择跨平台的写法；只能在 Windows 上运行的工具在组件的说明文档中写明，项目的 `.github/workflows/check.yml` 相应使用 Windows 运行环境。
 

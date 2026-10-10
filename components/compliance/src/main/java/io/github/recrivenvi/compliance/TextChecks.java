@@ -17,7 +17,7 @@ final class TextChecks {
         for (String file : repository.files()) {
             if (Repository.result(file)) continue;
             byte[] bytes = repository.bytes(file);
-            if (binary(bytes)) continue;
+            if (repository.binary(file, bytes)) continue;
             if (bytes.length >= 3
                     && (bytes[0] & 0xff) == 0xef
                     && (bytes[1] & 0xff) == 0xbb
@@ -78,10 +78,5 @@ final class TextChecks {
                             Rule.C06,
                             "gradlew",
                             "在 Git 中把 gradlew 标记为可执行：git add --chmod=+x gradlew"));
-    }
-
-    private static boolean binary(byte[] bytes) {
-        for (int i = 0; i < Math.min(bytes.length, 8192); i++) if (bytes[i] == 0) return true;
-        return false;
     }
 }

@@ -30,8 +30,9 @@ public final class ComponentConventions {
             TEXT_EXTENSIONS.stream().map(extension -> "**/*." + extension).toList();
     private static final List<String> WINDOWS_TEXT =
             Arrays.stream("bat cmd".split(" ")).map(extension -> "**/*." + extension).toList();
+    // node_modules/ 与 dist/ 是 JavaScript 工具的依赖与输出目录，由工具生成并被 Git 忽略。
     private static final List<String> EXCLUDED =
-            List.of("build/**", ".gradle/**", "third_party/**", "**/node_modules/**");
+            List.of("build/**", ".gradle/**", "third_party/**", "**/node_modules/**", "**/dist/**");
 
     private ComponentConventions() {}
 
